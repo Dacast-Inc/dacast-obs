@@ -1,6 +1,8 @@
 OBS Studio <https://obsproject.com>
 ===================================
 
+This is a version of OBS with an additionnal plugin to facilitate usage with the DaCast platform 
+
 What is OBS Studio?
 -------------------
 

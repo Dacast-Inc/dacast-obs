@@ -5,11 +5,14 @@ include_directories(${OBS_JANSSON_INCLUDE_DIRS})
 set(rtmp-services_SOURCES
 	twitch.c
 	rtmp-common.c
-	rtmp-custom.c
+    rtmp-custom.c
+    rtmp-dacast.c  
+    dacast-utils.c 
 	rtmp-services-main.c)
 
 set(rtmp-services_HEADERS
-	twitch.h
+    twitch.h
+    dacast-utils.h 
 	rtmp-format-ver.h)
 
 set(RTMP_SERVICES_URL
