@@ -54,7 +54,7 @@ char *request(const char *url)
     curl_easy_setopt(curl, CURLOPT_URL, url); 
  
     /* GitHub commits API v3 requires a User-Agent header */ 
-    headers = curl_slist_append(headers, "User-Agent: Jansson-Tutorial"); 
+    headers = curl_slist_append(headers, "User-Agent: DaCast-OBS"); 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers); 
  
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_response); 
