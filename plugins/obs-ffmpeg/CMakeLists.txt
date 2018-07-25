@@ -5,9 +5,12 @@ if(MSVC)
 		w32-pthreads)
 endif()
 
+find_package(Libcurl REQUIRED)
+
 find_package(FFmpeg REQUIRED
 	COMPONENTS avcodec avfilter avdevice avutil swscale avformat swresample)
 include_directories(${FFMPEG_INCLUDE_DIRS})
+include_directories(${LIBCURL_INCLUDE_DIRS})
 
 set(obs-ffmpeg_HEADERS
 	obs-ffmpeg-formats.h
@@ -26,6 +29,7 @@ add_library(obs-ffmpeg MODULE
 	${obs-ffmpeg_SOURCES})
 target_link_libraries(obs-ffmpeg
 	libobs
+	${LIBCURL_LIBRARIES}
 	media-playback
 	${obs-ffmpeg_PLATFORM_DEPS}
 	${FFMPEG_LIBRARIES})
