@@ -5,7 +5,6 @@
 #include <util/dstr.h>
 #include <util/darray.h>
 #include <util/platform.h>
-#include <regex.h>
 #include <curl/curl.h>
 #include <sys/stat.h>
 
