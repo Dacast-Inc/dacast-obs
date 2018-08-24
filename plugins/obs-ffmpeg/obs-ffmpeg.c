@@ -11,6 +11,7 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-ffmpeg", "en-US")
 
 extern struct obs_source_info  ffmpeg_source;
 extern struct obs_output_info  ffmpeg_output;
+extern struct obs_output_info  dacast_hls_ffmpeg_output;
 extern struct obs_output_info  ffmpeg_muxer;
 extern struct obs_output_info  replay_buffer;
 extern struct obs_encoder_info aac_encoder_info;
@@ -165,8 +166,11 @@ bool obs_module_load(void)
 
 	//av_log_set_callback(ffmpeg_log_callback);
 
+    blog(LOG_INFO, "|||||||||||||||||||||||||||||||||||||||||||||registering dacast ffmpeg");
+
 	obs_register_source(&ffmpeg_source);
 	obs_register_output(&ffmpeg_output);
+	obs_register_output(&dacast_hls_ffmpeg_output);
 	obs_register_output(&ffmpeg_muxer);
 	obs_register_output(&replay_buffer);
 	obs_register_encoder(&aac_encoder_info);

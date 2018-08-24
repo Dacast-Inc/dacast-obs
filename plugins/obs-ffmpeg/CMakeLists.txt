@@ -21,6 +21,7 @@ set(obs-ffmpeg_SOURCES
 	obs-ffmpeg-audio-encoders.c
 	obs-ffmpeg-nvenc.c
 	obs-ffmpeg-output.c
+    dacast-hls-ffmpeg-output.c
 	obs-ffmpeg-mux.c
 	obs-ffmpeg-source.c)
 

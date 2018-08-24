@@ -21,6 +21,7 @@
 *.ninja
 .ninja*
 .dirstamp
+obs-studio-build/
 
 #xcode
 *.xcodeproj/

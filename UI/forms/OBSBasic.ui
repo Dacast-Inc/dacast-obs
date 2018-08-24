@@ -7,7 +7,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1079</width>
+    <width>1096</width>
     <height>730</height>
    </rect>
   </property>
@@ -38,6 +38,16 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string/>
+      </property>
+      <property name="pixmap">
+       <pixmap resource="obs.qrc">:/res/images/dacast_logo.png</pixmap>
+      </property>
+     </widget>
+    </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
@@ -105,8 +115,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1079</width>
-     <height>21</height>
+     <width>1096</width>
+     <height>28</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -645,7 +655,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>230</width>
+          <width>201</width>
           <height>16</height>
          </rect>
         </property>

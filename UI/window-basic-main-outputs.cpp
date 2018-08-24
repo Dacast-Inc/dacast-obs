@@ -1074,6 +1074,7 @@ AdvancedOutput::AdvancedOutput(OBSBasic *main_) : BasicOutputHandler(main_)
 	              astrcmpi(rate_control, "ABR") == 0;
 
 	if (ffmpegOutput) {
+        blog(LOG_INFO, "||||||||||||||||||||||||||creating ffmpeg output");
 		fileOutput = obs_output_create("ffmpeg_output",
 				"adv_ffmpeg_output", nullptr, nullptr);
 		if (!fileOutput)
@@ -1415,11 +1416,21 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 			"TrackIndex");
 
 	const char *type = obs_service_get_output_type(service);
+    blog(LOG_INFO, "|||||||||||||||||||||||||starting stream with type %s", type);
+
+
 	if (!type)
 		type = "rtmp_output";
 
+    const char* streamType = config_get_string(main->Config(), "AdvOut", "StreamType");
+    blog(LOG_INFO, "|||||||||||||||||||||||||streamtype: %s", streamType);
+    if(!QString(streamType).compare("HLS")){
+        type = "dacast_hls_ffmpeg_output";
+    }
+
 	/* XXX: this is messy and disgusting and should be refactored */
 	if (outputType != type) {
+        blog(LOG_INFO, "|||||||||||||||||||||||||outputtype changed: %s", type);
 		streamDelayStarting.Disconnect();
 		streamStopping.Disconnect();
 		startStreaming.Disconnect();
@@ -1451,6 +1462,7 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 		const char *codec =
 			obs_output_get_supported_audio_codecs(streamOutput);
 		if (!codec) {
+            blog(LOG_INFO, "|||||||||||||||||||||||||no supported audio codecs");
 			return false;
 		}
 
@@ -1465,8 +1477,10 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 			streamAudioEnc = obs_audio_encoder_create(id,
 					"alt_audio_enc", nullptr,
 					trackIndex - 1, nullptr);
-			if (!streamAudioEnc)
+			if (!streamAudioEnc){
+                blog(LOG_INFO, "|||||||||||||||||||||||||error creating stream audio encoder");
 				return false;
+            }
 
 			obs_encoder_update(streamAudioEnc, settings);
 			obs_encoder_set_audio(streamAudioEnc, obs_get_audio());
@@ -1499,6 +1513,11 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 			"NewSocketLoopEnable");
 	bool enableLowLatencyMode = config_get_bool(main->Config(), "Output",
 			"LowLatencyEnable");
+    int hlsAudioBitrate = config_get_int(main->Config(), "AdvOut", "HlsAudioBitrate");
+    int hlsVideoBitrate = config_get_int(main->Config(), "AdvOut", "HlsVideoBitrate");
+    int hlsKeyframeInterval = config_get_int(main->Config(), "AdvOut", "HlsKeyframeInterval");
+    int hlsScaleWidth = config_get_int(main->Config(), "AdvOut", "HlsScaleWidth");
+    int hlsScaleHeight = config_get_int(main->Config(), "AdvOut", "HlsScaleHeight");
 
 	obs_data_t *settings = obs_data_create();
 	obs_data_set_string(settings, "bind_ip", bindIP);
@@ -1506,6 +1525,11 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 			enableNewSocketLoop);
 	obs_data_set_bool(settings, "low_latency_mode_enabled",
 			enableLowLatencyMode);
+    obs_data_set_int(settings, "hls_video_bitrate", hlsVideoBitrate);
+    obs_data_set_int(settings, "hls_audio_bitrate", hlsAudioBitrate);
+    obs_data_set_int(settings, "hls_keyframe_interval", hlsKeyframeInterval);
+    obs_data_set_int(settings, "hls_scale_width", hlsScaleWidth);
+    obs_data_set_int(settings, "hls_scale_height", hlsScaleHeight);
 	obs_output_update(streamOutput, settings);
 	obs_data_release(settings);
 
@@ -1529,6 +1553,7 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 			type,
 			has_last_error ? "  Last Error: " : "",
 			has_last_error ? error : "");
+    blog(LOG_INFO, "|||||||||||||||||||||||||end of func");    
 	return false;
 }
 

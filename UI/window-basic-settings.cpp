@@ -51,6 +51,9 @@
 
 using namespace std;
 
+static inline int IdxFromStreamType(const char* streamType);
+static inline int IdxFromAudioBitrate(int bitrate);
+
 // Used for QVariant in codec comboboxes
 namespace {
 static bool StringEquals(QString left, QString right)
@@ -338,6 +341,12 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 	HookWidget(ui->simpleRBSecMax,       SCROLL_CHANGED, OUTPUTS_CHANGED);
 	HookWidget(ui->simpleRBMegsMax,      SCROLL_CHANGED, OUTPUTS_CHANGED);
 	HookWidget(ui->advOutEncoder,        COMBO_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutStreamType,     COMBO_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutHlsVideoBitrate, SCROLL_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutHlsAudioBitrate, COMBO_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutHlsKeyframeInterval, SCROLL_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutHlsScaleWidth,  SCROLL_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutHlsScaleHeight, SCROLL_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->advOutUseRescale,     CHECK_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->advOutRescale,        CBEDIT_CHANGED, OUTPUTS_CHANGED);
 	HookWidget(ui->advOutTrack1,         CHECK_CHANGED,  OUTPUTS_CHANGED);
@@ -701,6 +710,14 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 	SimpleRecordingQualityChanged();
 
 	UpdateAutomaticReplayBufferCheckboxes();
+
+
+    config_set_default_string(main->Config(), "AdvOut", "StreamType", "RTMP");
+    config_set_default_int(main->Config(), "AdvOut", "HlsAudioBitrate", 128);
+    config_set_default_int(main->Config(), "AdvOut", "HlsVideoBitrate", 2000);
+    config_set_default_int(main->Config(), "AdvOut", "HlsKeyframeInterval", 2);
+    config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 1920);
+    config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 1080);
 }
 
 OBSBasicSettings::~OBSBasicSettings()
@@ -1540,7 +1557,14 @@ void OBSBasicSettings::LoadAdvOutputStreamingSettings()
 			"TrackIndex");
 	bool applyServiceSettings = config_get_bool(main->Config(), "AdvOut",
 			"ApplyServiceSettings");
+    const char* streamTypeSelected = config_get_string(main->Config(), "AdvOut", "StreamType");
+    int hlsAudioBitrate = config_get_int(main->Config(), "AdvOut", "HlsAudioBitrate");
+    int hlsVideoBitrate = config_get_int(main->Config(), "AdvOut", "HlsVideoBitrate");
+    int hlsKeyframeInterval = config_get_int(main->Config(), "AdvOut", "HlsKeyframeInterval");
+    int hlsScaleWidth = config_get_int(main->Config(), "AdvOut", "HlsScaleWidth");
+    int hlsScaleHeight = config_get_int(main->Config(), "AdvOut", "HlsScaleHeight");
 
+    
 	ui->advOutApplyService->setChecked(applyServiceSettings);
 	ui->advOutUseRescale->setChecked(rescale);
 	ui->advOutRescale->setEnabled(rescale);
@@ -1553,6 +1577,13 @@ void OBSBasicSettings::LoadAdvOutputStreamingSettings()
 	specCompleter->setFilterMode(Qt::MatchContains);
 	ui->filenameFormatting->setCompleter(specCompleter);
 	ui->filenameFormatting->setToolTip(QTStr("FilenameFormatting.TT"));
+
+    ui->advOutStreamType->setCurrentIndex(IdxFromStreamType(streamTypeSelected));
+    ui->advOutHlsAudioBitrate->setCurrentIndex(IdxFromAudioBitrate(hlsAudioBitrate));
+    ui->advOutHlsVideoBitrate->setValue(hlsVideoBitrate);
+    ui->advOutHlsKeyframeInterval->setValue(hlsKeyframeInterval);
+    ui->advOutHlsScaleWidth->setValue(hlsScaleWidth);
+    ui->advOutHlsScaleHeight->setValue(hlsScaleHeight);
 
 	switch (trackIndex) {
 	case 1: ui->advOutTrack1->setChecked(true); break;
@@ -1607,6 +1638,7 @@ void OBSBasicSettings::LoadAdvOutputStreamingEncoderProperties()
 			this, SLOT(UpdateStreamDelayEstimate()));
 	connect(streamEncoderProps, SIGNAL(Changed()),
 			this, SLOT(AdvReplayBufferChanged()));
+    on_advOutStreamType_currentIndexChanged(ui->advOutStreamType->currentIndex());
 
 	curAdvStreamEncoder = type;
 
@@ -2857,6 +2889,56 @@ static inline const char *RecTypeFromIdx(int idx)
 		return "Standard";
 }
 
+static inline const char *StreamTypeFromIdx(int idx)
+{
+	if (idx == 1)
+		return "HLS";
+	else
+		return "RTMP";
+}
+
+static inline int IdxFromStreamType(const char* streamType)
+{
+	if (QString(streamType).compare("HLS"))
+		return 0;
+	else
+		return 1;
+}
+
+static inline int AudioBitrateFromIdx(int idx)
+{
+	switch(idx){
+        case 0: return 32;
+        case 1: return 64;
+        case 2: return 96;
+        case 3: return 128;
+        case 4: return 160;
+        case 5: return 192;
+        case 6: return 224;
+        case 7: return 256;
+        case 8: return 288;
+        case 9: return 320;
+        default: return 128;
+    }
+}
+
+static inline int IdxFromAudioBitrate(int bitrate)
+{
+	switch(bitrate){
+        case 32: return 0;
+        case 64: return 1;
+        case 96: return 2;
+        case 128: return 3;
+        case 160: return 4;
+        case 192: return 5;
+        case 224: return 6;
+        case 256: return 7;
+        case 288: return 8;
+        case 320: return 9;
+        default: return 3;
+    }
+}
+
 static void WriteJsonData(OBSPropertiesView *view, const char *path)
 {
 	char full_path[512];
@@ -2982,6 +3064,15 @@ void OBSBasicSettings::SaveOutputSettings()
 
 	config_set_string(main->Config(), "AdvOut", "RecType",
 			RecTypeFromIdx(ui->advOutRecType->currentIndex()));
+
+    config_set_string(main->Config(), "AdvOut", "StreamType", 
+            StreamTypeFromIdx(ui->advOutStreamType->currentIndex()));
+    config_set_int(main->Config(), "AdvOut", "HlsAudioBitrate", 
+            AudioBitrateFromIdx(ui->advOutHlsAudioBitrate->currentIndex()));
+	SaveSpinBox(ui->advOutHlsVideoBitrate, "AdvOut", "HlsVideoBitrate");
+    SaveSpinBox(ui->advOutHlsKeyframeInterval, "AdvOut", "HlsKeyframeInterval");
+    SaveSpinBox(ui->advOutHlsScaleWidth, "AdvOut", "HlsScaleWidth");
+    SaveSpinBox(ui->advOutHlsScaleHeight, "AdvOut", "HlsScaleHeight");
 
 	curAdvRecordEncoder = GetComboData(ui->advOutRecEncoder);
 
@@ -3318,6 +3409,59 @@ void OBSBasicSettings::on_buttonBox_clicked(QAbstractButton *button)
 		ClearChanged();
 		close();
 	}
+}
+
+void OBSBasicSettings::on_advOutStreamType_currentIndexChanged(int idx)
+{
+    if (!streamEncoderProps)
+		return;
+
+	QString streamType = QString(StreamTypeFromIdx(ui->advOutStreamType->currentIndex()));
+
+    blog(LOG_INFO, "streamtype hls: %s: %d", streamType.toUtf8().constData(), streamType.compare("HLS"));
+    if(streamType.compare("HLS") == 0){
+        //hls mode
+        ui->advOutHlsVideoBitrate->show();
+        ui->advOutHlsVideoBitrateLabel->show();
+        ui->advOutHlsAudioBitrate->show();
+        ui->advOutHlsAudioBitrateLabel->show();
+        ui->advOutHlsKeyframeInterval->show();
+        ui->advOutHlsKeyframeIntervalLabel->show();
+        ui->advOutHlsScaleHeight->show();
+        ui->advOutHlsScaleHeightLabel->show();
+        ui->advOutHlsScaleWidth->show();
+        ui->advOutHlsScaleWidthLabel->show();
+
+        streamEncoderProps->hide();
+        ui->label_28->hide();//label for audio tracks
+        ui->widget_8->hide();//container for audio tracks
+        ui->advOutEncLabel->hide();
+        ui->advOutEncoder->hide();
+        ui->advOutApplyService->hide();
+        ui->advOutUseRescale->hide();
+        ui->advOutRescale->hide();
+    }else{
+        ui->advOutHlsVideoBitrate->hide();
+        ui->advOutHlsVideoBitrateLabel->hide();
+        ui->advOutHlsAudioBitrate->hide();
+        ui->advOutHlsAudioBitrateLabel->hide();
+        ui->advOutHlsKeyframeInterval->hide();
+        ui->advOutHlsKeyframeIntervalLabel->hide();
+        ui->advOutHlsScaleHeight->hide();
+        ui->advOutHlsScaleHeightLabel->hide();
+        ui->advOutHlsScaleWidth->hide();
+        ui->advOutHlsScaleWidthLabel->hide();
+
+        streamEncoderProps->show();
+        ui->label_28->show();//label for audio tracks
+        ui->widget_8->show();//container for audio tracks
+        ui->advOutEncLabel->show();
+        ui->advOutEncoder->show();
+        ui->advOutApplyService->show();
+        ui->advOutUseRescale->show();
+        ui->advOutRescale->show();
+    }
+	UNUSED_PARAMETER(idx);
 }
 
 void OBSBasicSettings::on_streamType_currentIndexChanged(int idx)

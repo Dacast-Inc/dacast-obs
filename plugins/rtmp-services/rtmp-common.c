@@ -500,6 +500,7 @@ static void rtmp_common_apply_settings(void *data,
 static const char *rtmp_common_get_output_type(void *data)
 {
 	struct rtmp_common *service = data;
+    blog(LOG_INFO, "||||||||||||||||||||||||||||||||||rtmp_common_get_output_type: %s", service->output);
 	return service->output;
 }
 

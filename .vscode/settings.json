@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "cstring": "c",
+        "cmath": "c",
+        "typeinfo": "c",
+        "bitset": "cpp",
+        "future": "cpp",
+        "thread": "c",
+        "array": "c",
+        "sstream": "c",
+        "*.tcc": "c",
+        "chrono": "c",
+        "functional": "c",
+        "ratio": "cpp",
+        "type_traits": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "fstream": "c"
+    }
+}

@@ -146,7 +146,7 @@
               <x>0</x>
               <y>0</y>
               <width>801</width>
-              <height>741</height>
+              <height>1039</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_19">
@@ -733,8 +733,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>818</width>
-              <height>697</height>
+              <width>801</width>
+              <height>855</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_21">
@@ -820,7 +820,7 @@
              <item>
               <widget class="QStackedWidget" name="outputModePages">
                <property name="currentIndex">
-                <number>0</number>
+                <number>1</number>
                </property>
                <widget class="QWidget" name="easyOutputsPage">
                 <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -1381,6 +1381,30 @@
                             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                            </property>
                            <item row="1" column="0">
+                            <widget class="QLabel" name="advOutStreamTypeLabel">
+                             <property name="text">
+                              <string>Stream Type</string>
+                             </property>
+                             <property name="buddy">
+                              <cstring>advOutStreamType</cstring>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="1" column="1">
+                            <widget class="QComboBox" name="advOutStreamType">
+                             <item>
+                              <property name="text">
+                               <string>RTMP</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>HLS</string>
+                              </property>
+                             </item>
+                            </widget>
+                           </item>
+                           <item row="2" column="0">
                             <widget class="QLabel" name="label_28">
                              <property name="minimumSize">
                               <size>
@@ -1396,7 +1420,7 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="1" column="1">
+                           <item row="2" column="1">
                             <widget class="QWidget" name="widget_8" native="true">
                              <property name="sizePolicy">
                               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
@@ -1465,7 +1489,7 @@
                              </layout>
                             </widget>
                            </item>
-                           <item row="2" column="0">
+                           <item row="3" column="0">
                             <widget class="QLabel" name="advOutEncLabel">
                              <property name="text">
                               <string>Basic.Settings.Output.Encoder</string>
@@ -1475,10 +1499,10 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="2" column="1">
+                           <item row="3" column="1">
                             <widget class="QComboBox" name="advOutEncoder"/>
                            </item>
-                           <item row="3" column="1">
+                           <item row="4" column="1">
                             <widget class="QCheckBox" name="advOutApplyService">
                              <property name="text">
                               <string>Basic.Settings.Output.Adv.ApplyServiceSettings</string>
@@ -1488,7 +1512,7 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="4" column="0">
+                           <item row="5" column="0">
                             <widget class="QCheckBox" name="advOutUseRescale">
                              <property name="sizePolicy">
                               <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
@@ -1504,13 +1528,148 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="4" column="1">
+                           <item row="5" column="1">
                             <widget class="QComboBox" name="advOutRescale">
                              <property name="enabled">
                               <bool>false</bool>
                              </property>
                              <property name="editable">
                               <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="6" column="0">
+                            <widget class="QLabel" name="advOutHlsVideoBitrateLabel">
+                             <property name="text">
+                              <string>Video Bitrate</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="6" column="1">
+                            <widget class="QSpinBox" name="advOutHlsVideoBitrate">
+                             <property name="minimum">
+                              <number>50</number>
+                             </property>
+                             <property name="maximum">
+                              <number>10000000</number>
+                             </property>
+                             <property name="value">
+                              <number>2000</number>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="7" column="0">
+                            <widget class="QLabel" name="advOutHlsAudioBitrateLabel">
+                             <property name="text">
+                              <string>Audio Bitrate</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="7" column="1">
+                            <widget class="QComboBox" name="advOutHlsAudioBitrate">
+                             <property name="currentIndex">
+                              <number>3</number>
+                             </property>
+                             <item>
+                              <property name="text">
+                               <string>32</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>64</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>96</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>128</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>160</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>192</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>224</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>256</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>288</string>
+                              </property>
+                             </item>
+                             <item>
+                              <property name="text">
+                               <string>320</string>
+                              </property>
+                             </item>
+                            </widget>
+                           </item>
+                           <item row="8" column="0">
+                            <widget class="QLabel" name="advOutHlsKeyframeIntervalLabel">
+                             <property name="text">
+                              <string>Keyframe interval (seconds)</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="8" column="1">
+                            <widget class="QSpinBox" name="advOutHlsKeyframeInterval">
+                             <property name="minimum">
+                              <number>1</number>
+                             </property>
+                             <property name="maximum">
+                              <number>20</number>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="9" column="0">
+                            <widget class="QLabel" name="advOutHlsScaleWidthLabel">
+                             <property name="text">
+                              <string>Scale width</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="9" column="1">
+                            <widget class="QSpinBox" name="advOutHlsScaleWidth">
+                             <property name="minimum">
+                              <number>50</number>
+                             </property>
+                             <property name="maximum">
+                              <number>10000</number>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="10" column="0">
+                            <widget class="QLabel" name="advOutHlsScaleHeightLabel">
+                             <property name="text">
+                              <string>Scale height</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="10" column="1">
+                            <widget class="QSpinBox" name="advOutHlsScaleHeight">
+                             <property name="minimum">
+                              <number>50</number>
+                             </property>
+                             <property name="maximum">
+                              <number>10000</number>
                              </property>
                             </widget>
                            </item>
@@ -3372,8 +3531,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>800</width>
-              <height>69</height>
+              <width>63</width>
+              <height>16</height>
              </rect>
             </property>
            </widget>
@@ -3791,8 +3950,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>593</width>
-              <height>761</height>
+              <width>773</width>
+              <height>1012</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_16">

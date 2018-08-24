@@ -739,7 +739,7 @@ static void send_segment(struct chunk_name to_send)
         // baseurl = 'http://post.dctranslive01-i.akamaihd.net:80/'
 
 //TODO replace concat with sprintf 
-        curl_easy_setopt(curl, CURLOPT_URL, concat("http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/", to_send.filename));
+        curl_easy_setopt(curl, CURLOPT_URL, concat("http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/gjjgjggjgj/", to_send.filename));
         /* tell it to "upload" to the URL */
         curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
         curl_easy_setopt(curl, CURLOPT_PUT, 1L);
@@ -782,9 +782,10 @@ static void send_m3u8(struct chunk_name filename_latest_segment)
 static void ffmpeg_log_callback(void *param, int level, const char *format,
 		va_list args)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_log_callback");
 
 	if (level <= AV_LOG_INFO){
+        blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>old_ffmpeg_log_callback");
+        blogva(LOG_DEBUG, format, args);
         char out[4096];
         vsnprintf(out, sizeof(out), bstrdup(format), args);
         blog(LOG_INFO, "log %d %s", level, out);
@@ -1390,6 +1391,45 @@ static bool try_connect(struct ffmpeg_output *output)
 		ffmpeg_output_full_stop(output);
 		return false;
 	}
+
+    blog(LOG_INFO, "configs:\n"
+        "url: %s\n"
+        "format_name: %s\n"
+        "format_mime_type: %s\n"
+        "muxer_settings: %s\n"
+        "video_bitrate: %d\n"
+        "audio_bitrate: %d\n"
+        "gop_size: %d\n"
+        "video_encoder: %s\n"
+        "video_encoder_id: %d\n"
+        "video_settings: %s\n"
+        "audio_encoder: %s\n"
+        "audio_encoder_id: %d\n"
+        "audio_settings: %s\n"
+        "scale_width: %d\n"
+        "scale_height: %d\n"
+        "width: %d\n"
+        "height: %d\n"
+        "format: %d\n",
+        config.url,
+        config.format_name,
+        config.format_mime_type,
+        config.muxer_settings,
+        config.video_bitrate,
+        config.audio_bitrate,
+        config.gop_size,
+        config.video_encoder,
+        config.video_encoder_id,
+        config.video_settings,
+        config.audio_encoder,
+        config.audio_encoder_id,
+        config.audio_settings,
+        config.scale_width,
+        config.scale_height,
+        config.width,
+        config.height,
+        config.format
+    );
 
 	obs_output_set_video_conversion(output->output, NULL);
 	obs_output_set_audio_conversion(output->output, &aci);
