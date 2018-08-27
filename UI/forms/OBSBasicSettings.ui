@@ -1538,14 +1538,14 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="6" column="0">
+                           <item row="7" column="0">
                             <widget class="QLabel" name="advOutHlsVideoBitrateLabel">
                              <property name="text">
                               <string>Video Bitrate</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="6" column="1">
+                           <item row="7" column="1">
                             <widget class="QSpinBox" name="advOutHlsVideoBitrate">
                              <property name="minimum">
                               <number>50</number>
@@ -1558,14 +1558,14 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="7" column="0">
+                           <item row="8" column="0">
                             <widget class="QLabel" name="advOutHlsAudioBitrateLabel">
                              <property name="text">
                               <string>Audio Bitrate</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="7" column="1">
+                           <item row="8" column="1">
                             <widget class="QComboBox" name="advOutHlsAudioBitrate">
                              <property name="currentIndex">
                               <number>3</number>
@@ -1622,14 +1622,14 @@
                              </item>
                             </widget>
                            </item>
-                           <item row="8" column="0">
+                           <item row="9" column="0">
                             <widget class="QLabel" name="advOutHlsKeyframeIntervalLabel">
                              <property name="text">
                               <string>Keyframe interval (seconds)</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="8" column="1">
+                           <item row="9" column="1">
                             <widget class="QSpinBox" name="advOutHlsKeyframeInterval">
                              <property name="minimum">
                               <number>1</number>
@@ -1639,14 +1639,14 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="9" column="0">
+                           <item row="10" column="0">
                             <widget class="QLabel" name="advOutHlsScaleWidthLabel">
                              <property name="text">
                               <string>Scale width</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="9" column="1">
+                           <item row="10" column="1">
                             <widget class="QSpinBox" name="advOutHlsScaleWidth">
                              <property name="minimum">
                               <number>50</number>
@@ -1656,14 +1656,14 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="10" column="0">
+                           <item row="11" column="0">
                             <widget class="QLabel" name="advOutHlsScaleHeightLabel">
                              <property name="text">
                               <string>Scale height</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="10" column="1">
+                           <item row="11" column="1">
                             <widget class="QSpinBox" name="advOutHlsScaleHeight">
                              <property name="minimum">
                               <number>50</number>
@@ -1672,6 +1672,16 @@
                               <number>10000</number>
                              </property>
                             </widget>
+                           </item>
+                           <item row="6" column="0">
+                            <widget class="QLabel" name="advOutHlsIngestUrlLabel">
+                             <property name="text">
+                              <string>Ingest URL</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="6" column="1">
+                            <widget class="QLineEdit" name="advOutHlsIngestUrl"/>
                            </item>
                           </layout>
                          </widget>
@@ -3531,8 +3541,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>63</width>
-              <height>16</height>
+              <width>98</width>
+              <height>28</height>
              </rect>
             </property>
            </widget>

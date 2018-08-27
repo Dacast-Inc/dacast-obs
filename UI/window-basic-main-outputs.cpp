@@ -1518,6 +1518,7 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
     int hlsKeyframeInterval = config_get_int(main->Config(), "AdvOut", "HlsKeyframeInterval");
     int hlsScaleWidth = config_get_int(main->Config(), "AdvOut", "HlsScaleWidth");
     int hlsScaleHeight = config_get_int(main->Config(), "AdvOut", "HlsScaleHeight");
+    const char* hlsIngestUrl = config_get_string(main->Config(), "AdvOut", "HlsIngestUrl");
 
 	obs_data_t *settings = obs_data_create();
 	obs_data_set_string(settings, "bind_ip", bindIP);
@@ -1530,6 +1531,7 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
     obs_data_set_int(settings, "hls_keyframe_interval", hlsKeyframeInterval);
     obs_data_set_int(settings, "hls_scale_width", hlsScaleWidth);
     obs_data_set_int(settings, "hls_scale_height", hlsScaleHeight);
+    obs_data_set_string(settings, "hls_ingest_url", hlsIngestUrl);
 	obs_output_update(streamOutput, settings);
 	obs_data_release(settings);
 

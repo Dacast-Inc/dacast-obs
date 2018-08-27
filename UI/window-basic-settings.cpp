@@ -347,6 +347,7 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 	HookWidget(ui->advOutHlsKeyframeInterval, SCROLL_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->advOutHlsScaleWidth,  SCROLL_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->advOutHlsScaleHeight, SCROLL_CHANGED,  OUTPUTS_CHANGED);
+	HookWidget(ui->advOutHlsIngestUrl,   EDIT_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->advOutUseRescale,     CHECK_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->advOutRescale,        CBEDIT_CHANGED, OUTPUTS_CHANGED);
 	HookWidget(ui->advOutTrack1,         CHECK_CHANGED,  OUTPUTS_CHANGED);
@@ -718,6 +719,7 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
     config_set_default_int(main->Config(), "AdvOut", "HlsKeyframeInterval", 2);
     config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 1920);
     config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 1080);
+    config_set_default_string(main->Config(), "AdvOut", "HlsIngestUrl", "");
 }
 
 OBSBasicSettings::~OBSBasicSettings()
@@ -1563,6 +1565,7 @@ void OBSBasicSettings::LoadAdvOutputStreamingSettings()
     int hlsKeyframeInterval = config_get_int(main->Config(), "AdvOut", "HlsKeyframeInterval");
     int hlsScaleWidth = config_get_int(main->Config(), "AdvOut", "HlsScaleWidth");
     int hlsScaleHeight = config_get_int(main->Config(), "AdvOut", "HlsScaleHeight");
+    const char* hlsIngestUrl = config_get_string(main->Config(), "AdvOut", "HlsIngestUrl");
 
     
 	ui->advOutApplyService->setChecked(applyServiceSettings);
@@ -1584,6 +1587,7 @@ void OBSBasicSettings::LoadAdvOutputStreamingSettings()
     ui->advOutHlsKeyframeInterval->setValue(hlsKeyframeInterval);
     ui->advOutHlsScaleWidth->setValue(hlsScaleWidth);
     ui->advOutHlsScaleHeight->setValue(hlsScaleHeight);
+    ui->advOutHlsIngestUrl->setText(hlsIngestUrl);
 
 	switch (trackIndex) {
 	case 1: ui->advOutTrack1->setChecked(true); break;
@@ -3073,6 +3077,7 @@ void OBSBasicSettings::SaveOutputSettings()
     SaveSpinBox(ui->advOutHlsKeyframeInterval, "AdvOut", "HlsKeyframeInterval");
     SaveSpinBox(ui->advOutHlsScaleWidth, "AdvOut", "HlsScaleWidth");
     SaveSpinBox(ui->advOutHlsScaleHeight, "AdvOut", "HlsScaleHeight");
+    SaveEdit(ui->advOutHlsIngestUrl, "AdvOut", "HlsIngestUrl");
 
 	curAdvRecordEncoder = GetComboData(ui->advOutRecEncoder);
 
@@ -3431,6 +3436,8 @@ void OBSBasicSettings::on_advOutStreamType_currentIndexChanged(int idx)
         ui->advOutHlsScaleHeightLabel->show();
         ui->advOutHlsScaleWidth->show();
         ui->advOutHlsScaleWidthLabel->show();
+        ui->advOutHlsIngestUrl->show();
+        ui->advOutHlsIngestUrlLabel->show();
 
         streamEncoderProps->hide();
         ui->label_28->hide();//label for audio tracks
@@ -3451,6 +3458,8 @@ void OBSBasicSettings::on_advOutStreamType_currentIndexChanged(int idx)
         ui->advOutHlsScaleHeightLabel->hide();
         ui->advOutHlsScaleWidth->hide();
         ui->advOutHlsScaleWidthLabel->hide();
+        ui->advOutHlsIngestUrl->hide();
+        ui->advOutHlsIngestUrlLabel->hide();
 
         streamEncoderProps->show();
         ui->label_28->show();//label for audio tracks

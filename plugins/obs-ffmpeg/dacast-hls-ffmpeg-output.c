@@ -113,7 +113,9 @@ struct dacast_hls_output {
 	os_sem_t           *send_sem;
 	os_event_t         *stop_event;
 
+    const char* url;
 
+    int64_t last_dts;
 
 };
 
@@ -298,12 +300,12 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 
 	nread = (curl_off_t)retcode;
 
-	fprintf(stderr, "*** We read %" CURL_FORMAT_CURL_OFF_T
-		" bytes from file\n", nread);
+	// fprintf(stderr, "*** We read %" CURL_FORMAT_CURL_OFF_T
+	// 	" bytes from file\n", nread);
 	return retcode;
 }
 
-static bool send_segment(struct chunk_name* to_send, char* sessionId)
+static bool send_segment(char* ingest_url, struct chunk_name* to_send, char* sessionId)
 {
     CURL *curl;
     CURLcode res;
@@ -334,7 +336,8 @@ static bool send_segment(struct chunk_name* to_send, char* sessionId)
 //TODO replace concat with sprintf 
 //http://post.dctranslive02-i.akamaihd.net/674923/live-104207-480006_1_1/ -> moche
 //http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/
-        char* url_part = concat("http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/", sessionId);
+//"http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/"
+        char* url_part = concat(ingest_url, sessionId);
         char* url_w_sessid = concat(url_part, "/");
         char* url = concat(url_w_sessid, to_send->filename);
 
@@ -361,9 +364,11 @@ static bool send_segment(struct chunk_name* to_send, char* sessionId)
         res = curl_easy_perform(curl);
         /* Check for errors */ 
         if(res != CURLE_OK){
-            blog(LOG_INFO, "curl_easy_perform() failed: %s\n",
-                    curl_easy_strerror(res));
-            //goto fail;
+            blog(LOG_INFO, "curl_easy_perform() failed (%d): %s\n",
+                    res, curl_easy_strerror(res));
+            if(res != CURLE_WRITE_ERROR){
+                goto fail;
+            }
         }else{
             blog(LOG_INFO, "curl_easy_perform() wasok");
             /* now extract transfer info */ 
@@ -395,12 +400,11 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
 		va_list args)
 {
     if (level <= AV_LOG_INFO){
-        blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_ffmpeg_log_callback");
-        // blogva(LOG_DEBUG, bstrdup(format), args);
+        // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_ffmpeg_log_callback");
 
-        char out[4096];
+    char out[4096];
 	char* format_cp = bstrdup(format);
-        vsnprintf(out, sizeof(out), format_cp, args);
+    vsnprintf(out, sizeof(out), format_cp, args);
 	bfree(format_cp);
         blog(LOG_INFO, "log %d %s", level, out);
 
@@ -511,6 +515,8 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 
 	if (data->config.muxer_settings)
 		bfree(data->config.muxer_settings);
+    if(data->config.url)
+        bfree(data->config.url);
 	
 
 	if (data->output) {
@@ -592,7 +598,9 @@ static void dacast_hls_ffmpeg_output_destroy(void *data)
 		os_sem_destroy(output->send_sem);
 		os_event_destroy(output->stop_event);
         os_event_destroy(hls_error_event);
+        bfree(output->url);
 		bfree(data);
+        outputStatic = NULL;
 	}
 }
 
@@ -629,8 +637,11 @@ static uint64_t get_packet_sys_dts(struct dacast_hls_output *output,
 		start_ts = output->audio_start_ts;
 	}
 
-	return start_ts + (uint64_t)av_rescale_q(packet->dts,
+    uint64_t dts = start_ts + (uint64_t)av_rescale_q(packet->dts,
 			time_base, (AVRational){1, 1000000000});
+
+    // blog(LOG_INFO, "made dts=%" PRIu64, dts);
+	return dts;
 }
 
 static int process_packet(struct dacast_hls_output *output)
@@ -648,13 +659,18 @@ static int process_packet(struct dacast_hls_output *output)
 	}
 	pthread_mutex_unlock(&output->write_mutex);
 
+    if(output->last_dts >= packet.dts){
+        blog(LOG_INFO, "about to blow up! %" PRId64 " >= %" PRId64, output->last_dts, packet.dts);
+    }
+    output->last_dts = packet.dts;
+
 	if (!new_packet)
 		return 0;
 
-	/*blog(LOG_INFO, "size = %d, flags = %lX, stream = %d, "
+	blog(LOG_INFO, "size = %d, flags = %lX, stream = %d, "
 			"packets queued: %lu",
 			packet.size, packet.flags,
-			packet.stream_index, output->packets.num);*/
+			packet.stream_index, output->packets.num);
 
 	if (stopping(output)) {
 		uint64_t sys_ts = get_packet_sys_dts(output, &packet);
@@ -665,6 +681,8 @@ static int process_packet(struct dacast_hls_output *output)
 	}
 
 	output->total_bytes += packet.size;
+
+    blog(LOG_INFO, "out pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
 
 	ret = av_interleaved_write_frame(output->ff_data.output, &packet);
 	if (ret < 0) {
@@ -727,9 +745,9 @@ static bool send_queued_segments(struct dacast_hls_output* output) {
 		struct chunk_name* to_send = *to_send_ptr;
 		da_erase(output->segments_to_send_queue, 0);
 		pthread_mutex_unlock(&output->send_mutex);
-		blog(LOG_INFO, "sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
+        blog(LOG_INFO, "sending segment %s nb %d, to %s", to_send->filename, to_send->chunk_nb, output->url);
 
-		if (!send_segment(to_send, akamaiSessionId)) {
+		if (!send_segment(output->url, to_send, akamaiSessionId)) {
 			blog("error sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
 			os_event_signal(hls_error_event);
 			return true;
@@ -853,8 +871,11 @@ height: 1080
 format: 23
     */
 
+//"http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/chunklist.m3u8";
+    char* hls_ingest_url = bstrdup(obs_data_get_string(settings, "hls_ingest_url"));
 
-	config.url = "http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/chunklist.m3u8";//obs_data_get_string(settings, "url");
+    output->url = hls_ingest_url;
+	config.url = concat(hls_ingest_url, "chunklist.m3u8");
 	config.format_name = "hls";
 	config.format_mime_type = NULL;
 	config.muxer_settings = bstrdup(muxer_settings);
@@ -1509,6 +1530,8 @@ static void encode_audio(struct dacast_hls_output *output,
 	packet.duration = (int)av_rescale_q(packet.duration, context->time_base,
 			data->audio->time_base);
 	packet.stream_index = data->audio->index;
+
+    blog(LOG_INFO, "in pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
 
 	pthread_mutex_lock(&output->write_mutex);
 	da_push_back(output->packets, &packet);

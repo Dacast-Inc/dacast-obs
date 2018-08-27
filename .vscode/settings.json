@@ -16,5 +16,6 @@
         "tuple": "cpp",
         "utility": "cpp",
         "fstream": "c"
-    }
+    },
+    "cmake.configureOnOpen": false
 }
