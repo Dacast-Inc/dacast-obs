@@ -1,6 +1,9 @@
 project(rtmp-services)
 
+find_package(Libcurl REQUIRED)
+
 include_directories(${OBS_JANSSON_INCLUDE_DIRS})
+include_directories(${LIBCURL_INCLUDE_DIRS})
 
 set(rtmp-services_SOURCES
 	twitch.c
@@ -34,6 +37,7 @@ add_library(rtmp-services MODULE
 target_link_libraries(rtmp-services
 	libobs
 	file-updater
+	${LIBCURL_LIBRARIES}
 	${OBS_JANSSON_IMPORT})
 
 target_include_directories(rtmp-services

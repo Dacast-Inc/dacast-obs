@@ -42,7 +42,7 @@ char *request(const char *url)
     if(!curl) 
         goto error; 
  
-    data = malloc(BUFFER_SIZE); 
+    data = bzalloc(BUFFER_SIZE); 
     if(!data) 
         goto error; 
  

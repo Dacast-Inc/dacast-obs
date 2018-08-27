@@ -96,7 +96,7 @@ static void sync_property_list(obs_properties_t *props, dacast_channel_array* ch
         dacast_channel* channel = channels->channels[i]; 
         char* json_repr = channel_to_json(channel); 
         obs_property_list_add_string(channel_list, channel->title, json_repr); 
-        bfree(json_repr); 
+        free(json_repr); 
     } 
 } 
  

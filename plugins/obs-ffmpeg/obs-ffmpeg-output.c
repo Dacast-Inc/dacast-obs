@@ -666,11 +666,13 @@ static int extract_chunk_nb(char* filename)
         return -1;
     }
 
-    char subbuff[(end_index - start_index) + 1];
+    char* subbuff = bzalloc(sizeof(char)*((end_index - start_index) + 1));
+    //char subbuff[(end_index - start_index) + 1];
     memcpy(subbuff, &filename[start_index], end_index - start_index);
     subbuff[(end_index - start_index)] = '\0';
 
     int parsed = atoi(subbuff);
+    bfree(subbuff);
     return parsed;
 }
 

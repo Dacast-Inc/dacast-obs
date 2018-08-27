@@ -26,6 +26,11 @@ const char* MUXER_SETTINGS =
 " http_user_agent=DacastOBS";
 //add this to the end "hls_base_url=gjjgjggjgj/"
 
+struct chunk_name {
+	char* filename;
+	int chunk_nb;
+};
+
 struct ffmpeg_cfg {
 	const char         *url;
 	const char         *format_name;
@@ -93,25 +98,35 @@ struct dacast_hls_output {
 	obs_output_t       *output;
 	struct ffmpeg_data ff_data;
 	DARRAY(AVPacket)   packets;
+	DARRAY(struct chunk_name*)   segments_to_send_queue;
 
     //threading
 	bool               write_thread_active;
+	bool		   send_thread_active;
+
 	pthread_t          start_thread;
+	pthread_t          send_thread;
 	pthread_t          write_thread;
 	pthread_mutex_t    write_mutex;
+	pthread_mutex_t    send_mutex;
 	os_sem_t           *write_sem;
-	os_event_t         *stop_event; 
+	os_sem_t           *send_sem;
+	os_event_t         *stop_event;
+
+
 
 };
 
+//TODO move thoses into the struct dacast_hls_output and make a dictionnary of the instances static 
 static char* akamaiSessionId;
-static os_event_t *hls_error_event; 
+static os_event_t *hls_error_event;
+static struct dacast_hls_output* outputStatic;
 
 static bool ffmpeg_data_init(struct ffmpeg_data *data, struct ffmpeg_cfg *config);
 
 
 char* concat(const char *s1, const char *s2) 
-{ 
+{
     char *result = bzalloc(strlen(s1) + strlen(s2) + 1);//+1 for the null-terminator 
     //in real code you would check for errors in malloc here 
     strncpy(result, s1, strlen(s1)); 
@@ -122,8 +137,9 @@ char* concat(const char *s1, const char *s2)
 char* rand_string(size_t size)
 {
     char *str = bzalloc(size + 1);
+    srand(time(NULL));
     if (str) {
-        const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789...";
+        const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         if (size)
         {
             --size;
@@ -173,18 +189,15 @@ static int extract_chunk_nb(char* filename)
         return -1;
     }
 
-    char subbuff[(end_index - start_index) + 1];
+    char* subbuff = bzalloc(sizeof(char)*((end_index - start_index) + 1));
+    //char subbuff[(end_index - start_index) + 1];
     memcpy(subbuff, &filename[start_index], end_index - start_index);
     subbuff[(end_index - start_index)] = '\0';
 
     int parsed = atoi(subbuff);
+    bfree(subbuff);
     return parsed;
 }
-
-struct chunk_name{
-    char* filename;
-    int chunk_nb;
-};
 
 // static struct chunk_name get_file_to_send()
 // {
@@ -259,16 +272,38 @@ fail:
     return false;
 }
 
-static struct chunk_name get_file_to_send2(char* log_entry){
+static struct chunk_name* get_file_to_send2(char* log_entry){
     int chunk_nb = extract_chunk_nb(log_entry);
     chunk_nb--;
-    char name[25];
+    char* name = bzalloc(sizeof(char)*25);
     sprintf(name, "chunk_%d.ts", chunk_nb);
-    struct chunk_name to_send = { name, chunk_nb };
+    struct chunk_name* to_send = bzalloc(sizeof(struct chunk_name));
+    to_send->filename = name;
+    to_send->chunk_nb = chunk_nb;
+    //struct chunk_name to_send = { name, chunk_nb };
     return to_send;
 }
 
-static bool send_segment(struct chunk_name to_send, char* sessionId)
+/* NOTE: if you want this example to work on Windows with libcurl as a
+   DLL, you MUST also provide a read callback with CURLOPT_READFUNCTION.
+   Failing to do so will give you a crash since a DLL may not use the
+   variable's memory when passed in to it from an app like this. */
+static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
+{
+	curl_off_t nread;
+	/* in real-world cases, this would probably get this data differently
+	   as this fread() stuff is exactly what the library already would do
+	   by default internally */
+	size_t retcode = fread(ptr, size, nmemb, stream);
+
+	nread = (curl_off_t)retcode;
+
+	fprintf(stderr, "*** We read %" CURL_FORMAT_CURL_OFF_T
+		" bytes from file\n", nread);
+	return retcode;
+}
+
+static bool send_segment(struct chunk_name* to_send, char* sessionId)
 {
     CURL *curl;
     CURLcode res;
@@ -276,15 +311,17 @@ static bool send_segment(struct chunk_name to_send, char* sessionId)
     // curl_off_t speed_upload, total_time;
     FILE *fd;
 
-    fd = fopen(to_send.filename, "rb"); /* open file to upload */ 
+    blog(LOG_INFO, "opening file to send, %s", to_send->filename);
+    fd = fopen(to_send->filename, "rb"); /* open file to upload */ 
     if(!fd){
         blog(LOG_INFO, "coulnt open file");
-        return;
+	goto fail;
     }
     if(fstat(fileno(fd), &file_info) != 0){
         blog(LOG_INFO, "couldnt read file info");
-        return;
+	goto fail;
     }
+    blog(LOG_INFO, "opened file, sending");
 
     /* get a curl handle */ 
     curl = curl_easy_init();
@@ -299,11 +336,11 @@ static bool send_segment(struct chunk_name to_send, char* sessionId)
 //http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/
         char* url_part = concat("http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/", sessionId);
         char* url_w_sessid = concat(url_part, "/");
-        char* url = concat(url_w_sessid, to_send.filename);
+        char* url = concat(url_w_sessid, to_send->filename);
 
         blog(LOG_INFO, "sending segment to %s", url);
 
-        curl_easy_setopt(curl, CURLOPT_URL, bstrdup(url));
+        curl_easy_setopt(curl, CURLOPT_URL, url);
 
         bfree(url_part);
         bfree(url_w_sessid);
@@ -312,6 +349,7 @@ static bool send_segment(struct chunk_name to_send, char* sessionId)
         /* tell it to "upload" to the URL */
         curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
         curl_easy_setopt(curl, CURLOPT_PUT, 1L);
+	curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
         /* set where to read from (on Windows you need to use READFUNCTION too) */ //TODO DO READ THING
         curl_easy_setopt(curl, CURLOPT_READDATA, fd);
         /* and give the size of the upload (optional) */ 
@@ -325,7 +363,7 @@ static bool send_segment(struct chunk_name to_send, char* sessionId)
         if(res != CURLE_OK){
             blog(LOG_INFO, "curl_easy_perform() failed: %s\n",
                     curl_easy_strerror(res));
-            goto fail;
+            //goto fail;
         }else{
             blog(LOG_INFO, "curl_easy_perform() wasok");
             /* now extract transfer info */ 
@@ -346,7 +384,9 @@ static bool send_segment(struct chunk_name to_send, char* sessionId)
 
 fail:
     fclose(fd);
-    curl_easy_cleanup(curl);
+    if (curl) {
+	curl_easy_cleanup(curl);
+    }
     return false;
 }
 
@@ -359,29 +399,37 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
         // blogva(LOG_DEBUG, bstrdup(format), args);
 
         char out[4096];
-        vsnprintf(out, sizeof(out), bstrdup(format), args);
+	char* format_cp = bstrdup(format);
+        vsnprintf(out, sizeof(out), format_cp, args);
+	bfree(format_cp);
         blog(LOG_INFO, "log %d %s", level, out);
 
         if(is_interesting_log(level, out)){
-            blog(LOG_INFO, "detected log! sending shit straight to space");
-            struct chunk_name to_send = get_file_to_send2(out);
-            if(to_send.chunk_nb == -1){
+            struct chunk_name* to_send = get_file_to_send2(out);
+            if(to_send->chunk_nb == -1){
                 blog(LOG_INFO, "couldnt find file to send");
                 return;
             }
-            blog(LOG_INFO, "found chunk to send %s nb %d", to_send.filename, to_send.chunk_nb);
+            blog(LOG_INFO, "found chunk to send %s nb %d", to_send->filename, to_send->chunk_nb);
 
-            if(!send_segment(to_send, akamaiSessionId)){
+	    pthread_mutex_lock(&outputStatic->send_mutex);
+	    da_push_back(outputStatic->segments_to_send_queue, &to_send);
+	    pthread_mutex_unlock(&outputStatic->send_mutex);
+	    os_sem_post(outputStatic->send_sem);
+
+            /*if(!send_segment(to_send, akamaiSessionId)){
                 os_event_signal(hls_error_event);
             }
             
 
             char* cwd = os_get_abs_path_ptr(".");
-            bool cleanup_result = cleanup_segments(cwd, to_send.chunk_nb-3);
+            bool cleanup_result = cleanup_segments(cwd, to_send->chunk_nb-3);
             bfree(cwd);
             if(!cleanup_result){
-                blog(LOG_ERROR, "error cleaning up segment below %d", to_send.chunk_nb-3);
+                blog(LOG_ERROR, "error cleaning up segment below %d", to_send->chunk_nb-3);
             }
+	    bfree(to_send->filename);
+	    bfree(to_send);*/
         }
     }
 	UNUSED_PARAMETER(param);
@@ -392,15 +440,20 @@ static void *dacast_hls_ffmpeg_output_create(obs_data_t *settings, obs_output_t 
     blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_create");
 	struct dacast_hls_output *data = bzalloc(sizeof(struct dacast_hls_output));
 	pthread_mutex_init_value(&data->write_mutex);
+	pthread_mutex_init_value(&data->send_mutex);
 	data->output = output;
 
 	if (pthread_mutex_init(&data->write_mutex, NULL) != 0)
 		goto fail;
+	if (pthread_mutex_init(&data->send_mutex, NULL) != 0)
+		goto fail;
 	if (os_event_init(&data->stop_event, OS_EVENT_TYPE_AUTO) != 0)
 		goto fail;
-    if(os_event_init(&hls_error_event, OS_EVENT_TYPE_AUTO) != 0)
-        goto fail;
+	if(os_event_init(&hls_error_event, OS_EVENT_TYPE_AUTO) != 0)
+		goto fail;
 	if (os_sem_init(&data->write_sem, 0) != 0)
+		goto fail;
+	if (os_sem_init(&data->send_sem, 0) != 0)
 		goto fail;
 
 	av_log_set_callback(ffmpeg_log_callback);
@@ -411,6 +464,7 @@ static void *dacast_hls_ffmpeg_output_create(obs_data_t *settings, obs_output_t 
 
 fail:
 	pthread_mutex_destroy(&data->write_mutex);
+	pthread_mutex_destroy(&data->send_mutex);
 	os_event_destroy(data->stop_event);
     os_event_destroy(hls_error_event);
 	bfree(data);
@@ -455,6 +509,10 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 	if (data->audio)
 		close_audio(data);
 
+	if (data->config.muxer_settings)
+		bfree(data->config.muxer_settings);
+	
+
 	if (data->output) {
 		if ((data->output->oformat->flags & AVFMT_NOFILE) == 0)
 			avio_close(data->output->pb);
@@ -468,11 +526,18 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 static void ffmpeg_deactivate(struct dacast_hls_output *output)
 {
     blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_deactivate");
+    if (output->write_thread_active || output->send_thread_active) {
+	    os_event_signal(output->stop_event);
+    }
 	if (output->write_thread_active) {
-		os_event_signal(output->stop_event);
 		os_sem_post(output->write_sem);
 		pthread_join(output->write_thread, NULL);
 		output->write_thread_active = false;
+	}
+	if (output->send_thread_active) {
+		os_sem_post(output->send_sem);
+		pthread_join(output->send_thread, NULL);
+		output->send_thread_active = false;
 	}
 
 	pthread_mutex_lock(&output->write_mutex);
@@ -480,8 +545,17 @@ static void ffmpeg_deactivate(struct dacast_hls_output *output)
 	for (size_t i = 0; i < output->packets.num; i++)
 		av_free_packet(output->packets.array+i);
 	da_free(output->packets);
-
 	pthread_mutex_unlock(&output->write_mutex);
+
+	pthread_mutex_lock(&output->send_mutex);
+	for (size_t i = 0; i < output->segments_to_send_queue.num; i++) {
+		struct chunk_name** chunk = output->segments_to_send_queue.array + i;
+		bfree((*chunk)->filename);
+		bfree(*chunk);
+	}
+	da_free(output->segments_to_send_queue);
+	pthread_mutex_unlock(&output->send_mutex);
+
 
 	ffmpeg_data_free(&output->ff_data);
 }
@@ -513,7 +587,9 @@ static void dacast_hls_ffmpeg_output_destroy(void *data)
 		ffmpeg_output_full_stop(output);
 
 		pthread_mutex_destroy(&output->write_mutex);
+		pthread_mutex_destroy(&output->send_mutex);
 		os_sem_destroy(output->write_sem);
+		os_sem_destroy(output->send_sem);
 		os_event_destroy(output->stop_event);
         os_event_destroy(hls_error_event);
 		bfree(data);
@@ -636,6 +712,81 @@ static void *write_thread(void *data)
 	return NULL;
 }
 
+/** this runs in the send_thread */
+static bool send_queued_segments(struct dacast_hls_output* output) {
+	//TODO check after every segment if the stop has been triggered
+	//and dont forget to lock the send_mutex before accessing the data
+
+	while (true) {
+		pthread_mutex_lock(&output->send_mutex);
+		if (!output->segments_to_send_queue.num) {
+			pthread_mutex_unlock(&output->send_mutex);
+			break;
+		}
+		struct chunk_name** to_send_ptr = output->segments_to_send_queue.array;
+		struct chunk_name* to_send = *to_send_ptr;
+		da_erase(output->segments_to_send_queue, 0);
+		pthread_mutex_unlock(&output->send_mutex);
+		blog(LOG_INFO, "sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
+
+		if (!send_segment(to_send, akamaiSessionId)) {
+			blog("error sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
+			os_event_signal(hls_error_event);
+			return true;
+		}
+		blog(LOG_INFO, "sent segment %s nb %d, starting cleanup", to_send->filename, to_send->chunk_nb);
+
+		char* cwd = os_get_abs_path_ptr(".");
+		bool cleanup_result = cleanup_segments(cwd, to_send->chunk_nb - 3);
+		bfree(cwd);
+		if (!cleanup_result) {
+			blog(LOG_ERROR, "error cleaning up segment below %d", to_send->chunk_nb - 3);
+		}
+		blog(LOG_INFO, "cleaned up", to_send->filename, to_send->chunk_nb);
+		bfree(to_send->filename);
+		bfree(to_send);
+	}
+	return true;
+
+	/*if(!send_segment(to_send, akamaiSessionId)){
+		os_event_signal(hls_error_event);
+	    }
+
+
+	    char* cwd = os_get_abs_path_ptr(".");
+	    bool cleanup_result = cleanup_segments(cwd, to_send->chunk_nb-3);
+	    bfree(cwd);
+	    if(!cleanup_result){
+		blog(LOG_ERROR, "error cleaning up segment below %d", to_send->chunk_nb-3);
+	    }
+	    bfree(to_send->filename);
+	    bfree(to_send);*/
+}
+
+static void* send_thread(void* data) {
+	blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>send_thread");
+	struct dacast_hls_output *output = data;
+	while (os_sem_wait(output->send_sem) == 0) {
+		if (os_event_try(output->stop_event) == 0) 
+			break;
+		
+		bool sent_sucessfully = send_queued_segments(output);
+		if (!sent_sucessfully) {
+			pthread_detach(output->send_thread);
+			output->send_thread_active = false;
+			obs_output_signal_stop(output->output, OBS_OUTPUT_ERROR);
+			ffmpeg_deactivate(output);
+			break;
+		}
+
+		if (os_event_try(output->stop_event) == 0) 
+			break;
+		
+	}
+	output->active = false;
+	return NULL;
+}
+
 static bool try_connect(struct dacast_hls_output *output)
 {
     blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_try_connect");
@@ -654,7 +805,7 @@ static bool try_connect(struct dacast_hls_output *output)
 // " hls_time=2"
 // " hls_init_time=2"
 
-    char keyframeIntervalStr[3] = "ab";
+    char* keyframeIntervalStr = bzalloc(sizeof(char)*3);
     int keyframeIntervalSec = (int)obs_data_get_int(settings, "hls_keyframe_interval");
     sprintf(keyframeIntervalStr, "%d", keyframeIntervalSec);
     char* hls_time = concat(" hls_time=", keyframeIntervalStr);
@@ -672,6 +823,7 @@ static bool try_connect(struct dacast_hls_output *output)
     char* extra_muxer_settings = concat(extra_hls_muxer_settings, session_id_total);
 
     muxer_settings = concat(MUXER_SETTINGS, extra_muxer_settings);
+    bfree(keyframeIntervalStr);
     bfree(session_id);
     bfree(session_id_arg);
     bfree(session_id_total);
@@ -706,7 +858,7 @@ format: 23
 	config.format_name = "hls";
 	config.format_mime_type = NULL;
 	config.muxer_settings = bstrdup(muxer_settings);
-    bfree(muxer_settings);
+	bfree(muxer_settings);
 	config.video_bitrate = (int)obs_data_get_int(settings, "hls_video_bitrate");
 	config.audio_bitrate = (int)obs_data_get_int(settings, "hls_audio_bitrate");
 	config.gop_size = voi->fps_num*keyframeIntervalSec;
@@ -803,11 +955,18 @@ format: 23
 		ffmpeg_output_full_stop(output);
 		return false;
 	}
+	ret = pthread_create(&output->send_thread, NULL, send_thread, output);
+	if (ret != 0) {
+		blog(LOG_WARNING, "ffmpeg_output_start: failed to create send thread.");
+		ffmpeg_output_full_stop(output);
+		return false;
+	}
 
 	obs_output_set_video_conversion(output->output, NULL);
 	obs_output_set_audio_conversion(output->output, &aci);
 	obs_output_begin_data_capture(output->output, 0);
 	output->write_thread_active = true;
+	output->send_thread_active = true;
 	return true;
 }
 
@@ -837,6 +996,7 @@ static bool dacast_hls_ffmpeg_output_start(void *data)
 {
     blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_start");
 	struct dacast_hls_output *output = data;
+	outputStatic = output;
 	int ret;
 
 	if (output->connecting)
