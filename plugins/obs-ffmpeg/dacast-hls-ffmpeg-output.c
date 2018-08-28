@@ -17,6 +17,9 @@
 #include "closest-pixel-format.h"
 #include "obs-ffmpeg-compat.h"
 
+//if there is more than MAX_QUEUED_SEGMENTS queued for sending, the surplus segments are dropped
+const int MAX_QUEUED_SEGMENTS = 4;
+
 const char* MUXER_SETTINGS = 
 "method=PUT"
 " master_pl_name=chunklist.m3u8"
@@ -99,6 +102,8 @@ struct dacast_hls_output {
 	struct ffmpeg_data ff_data;
 	DARRAY(AVPacket)   packets;
 	DARRAY(struct chunk_name*)   segments_to_send_queue;
+	const char* url;
+	int dropped_frames;
 
     //threading
 	bool               write_thread_active;
@@ -112,10 +117,6 @@ struct dacast_hls_output {
 	os_sem_t           *write_sem;
 	os_sem_t           *send_sem;
 	os_event_t         *stop_event;
-
-    const char* url;
-
-    int64_t last_dts;
 
 };
 
@@ -419,21 +420,9 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
 	    pthread_mutex_lock(&outputStatic->send_mutex);
 	    da_push_back(outputStatic->segments_to_send_queue, &to_send);
 	    pthread_mutex_unlock(&outputStatic->send_mutex);
+	    blog(LOG_INFO, "trigerring send thread");
+
 	    os_sem_post(outputStatic->send_sem);
-
-            /*if(!send_segment(to_send, akamaiSessionId)){
-                os_event_signal(hls_error_event);
-            }
-            
-
-            char* cwd = os_get_abs_path_ptr(".");
-            bool cleanup_result = cleanup_segments(cwd, to_send->chunk_nb-3);
-            bfree(cwd);
-            if(!cleanup_result){
-                blog(LOG_ERROR, "error cleaning up segment below %d", to_send->chunk_nb-3);
-            }
-	    bfree(to_send->filename);
-	    bfree(to_send);*/
         }
     }
 	UNUSED_PARAMETER(param);
@@ -446,6 +435,7 @@ static void *dacast_hls_ffmpeg_output_create(obs_data_t *settings, obs_output_t 
 	pthread_mutex_init_value(&data->write_mutex);
 	pthread_mutex_init_value(&data->send_mutex);
 	data->output = output;
+	data->dropped_frames = 0;
 
 	if (pthread_mutex_init(&data->write_mutex, NULL) != 0)
 		goto fail;
@@ -659,18 +649,13 @@ static int process_packet(struct dacast_hls_output *output)
 	}
 	pthread_mutex_unlock(&output->write_mutex);
 
-    if(output->last_dts >= packet.dts){
-        blog(LOG_INFO, "about to blow up! %" PRId64 " >= %" PRId64, output->last_dts, packet.dts);
-    }
-    output->last_dts = packet.dts;
-
 	if (!new_packet)
 		return 0;
 
-	blog(LOG_INFO, "size = %d, flags = %lX, stream = %d, "
+	/*blog(LOG_INFO, "size = %d, flags = %lX, stream = %d, "
 			"packets queued: %lu",
 			packet.size, packet.flags,
-			packet.stream_index, output->packets.num);
+			packet.stream_index, output->packets.num);*/
 
 	if (stopping(output)) {
 		uint64_t sys_ts = get_packet_sys_dts(output, &packet);
@@ -682,7 +667,7 @@ static int process_packet(struct dacast_hls_output *output)
 
 	output->total_bytes += packet.size;
 
-    blog(LOG_INFO, "out pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
+    //blog(LOG_INFO, "out pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
 
 	ret = av_interleaved_write_frame(output->ff_data.output, &packet);
 	if (ret < 0) {
@@ -731,54 +716,46 @@ static void *write_thread(void *data)
 }
 
 /** this runs in the send_thread */
-static bool send_queued_segments(struct dacast_hls_output* output) {
+static bool send_queued_segments(struct dacast_hls_output* output, int* cleanup_before) {
 	//TODO check after every segment if the stop has been triggered
-	//and dont forget to lock the send_mutex before accessing the data
+	//TODO copy the segment list to another list before doing the curls s the mutex doesnt get loked while the curl is running
+	
+	int dropped_segments = 0;
+	while (output->segments_to_send_queue.num > MAX_QUEUED_SEGMENTS) {
+		da_erase(output->segments_to_send_queue, 0);
+		dropped_segments++;
+	}
+	if (dropped_segments > 0) {
+		output->dropped_frames += output->ff_data.config.gop_size*dropped_segments;
+		blog(LOG_INFO, "too many segments queued, dropped %d segments", dropped_segments);
+	}
+
+	int highest_segment = -1;
 
 	while (true) {
-		pthread_mutex_lock(&output->send_mutex);
 		if (!output->segments_to_send_queue.num) {
-			pthread_mutex_unlock(&output->send_mutex);
 			break;
 		}
 		struct chunk_name** to_send_ptr = output->segments_to_send_queue.array;
 		struct chunk_name* to_send = *to_send_ptr;
 		da_erase(output->segments_to_send_queue, 0);
-		pthread_mutex_unlock(&output->send_mutex);
-        blog(LOG_INFO, "sending segment %s nb %d, to %s", to_send->filename, to_send->chunk_nb, output->url);
+        blog(LOG_INFO, "queued: %d, sending segment %s nb %d, to %s", output->segments_to_send_queue.num, to_send->filename, to_send->chunk_nb, output->url);
 
 		if (!send_segment(output->url, to_send, akamaiSessionId)) {
 			blog("error sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
 			os_event_signal(hls_error_event);
-			return true;
+			break;
+		}
+
+		if (highest_segment < to_send->chunk_nb) {
+			highest_segment = to_send->chunk_nb;
 		}
 		blog(LOG_INFO, "sent segment %s nb %d, starting cleanup", to_send->filename, to_send->chunk_nb);
-
-		char* cwd = os_get_abs_path_ptr(".");
-		bool cleanup_result = cleanup_segments(cwd, to_send->chunk_nb - 3);
-		bfree(cwd);
-		if (!cleanup_result) {
-			blog(LOG_ERROR, "error cleaning up segment below %d", to_send->chunk_nb - 3);
-		}
-		blog(LOG_INFO, "cleaned up", to_send->filename, to_send->chunk_nb);
 		bfree(to_send->filename);
 		bfree(to_send);
 	}
+	*cleanup_before = highest_segment;
 	return true;
-
-	/*if(!send_segment(to_send, akamaiSessionId)){
-		os_event_signal(hls_error_event);
-	    }
-
-
-	    char* cwd = os_get_abs_path_ptr(".");
-	    bool cleanup_result = cleanup_segments(cwd, to_send->chunk_nb-3);
-	    bfree(cwd);
-	    if(!cleanup_result){
-		blog(LOG_ERROR, "error cleaning up segment below %d", to_send->chunk_nb-3);
-	    }
-	    bfree(to_send->filename);
-	    bfree(to_send);*/
 }
 
 static void* send_thread(void* data) {
@@ -787,8 +764,14 @@ static void* send_thread(void* data) {
 	while (os_sem_wait(output->send_sem) == 0) {
 		if (os_event_try(output->stop_event) == 0) 
 			break;
-		
-		bool sent_sucessfully = send_queued_segments(output);
+		blog(LOG_INFO, "send thread triggered");
+
+		int cleanup_before = -1;
+
+		pthread_mutex_lock(&output->send_mutex);
+		bool sent_sucessfully = send_queued_segments(output, &cleanup_before);
+		pthread_mutex_unlock(&output->send_mutex);
+
 		if (!sent_sucessfully) {
 			pthread_detach(output->send_thread);
 			output->send_thread_active = false;
@@ -799,6 +782,18 @@ static void* send_thread(void* data) {
 
 		if (os_event_try(output->stop_event) == 0) 
 			break;
+
+		if (cleanup_before >= 0) {
+			blog(LOG_INFO, "starting cleanup");
+			char* cwd = os_get_abs_path_ptr(".");
+			bool cleanup_result = cleanup_segments(cwd, cleanup_before - 3);
+			bfree(cwd);
+			if (!cleanup_result) {
+				blog(LOG_ERROR, "error cleaning up segment below %d", cleanup_before - 3);
+			}
+			blog(LOG_INFO, "cleaned up");	
+		}
+		
 		
 	}
 	output->active = false;
@@ -1531,7 +1526,7 @@ static void encode_audio(struct dacast_hls_output *output,
 			data->audio->time_base);
 	packet.stream_index = data->audio->index;
 
-    blog(LOG_INFO, "in pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
+    //blog(LOG_INFO, "in pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
 
 	pthread_mutex_lock(&output->write_mutex);
 	da_push_back(output->packets, &packet);
@@ -1736,6 +1731,12 @@ static uint64_t dacast_hls_ffmpeg_output_total_bytes(void *data)
 }
 
 
+static int dacast_hls_ffmpeg_output_dropped_frames(void *data)
+{
+	struct dacast_hls_output *output = data;
+	return output->dropped_frames;
+}
+
 
 struct obs_output_info dacast_hls_ffmpeg_output = {
     .id        = "dacast_hls_ffmpeg_output",
@@ -1752,4 +1753,5 @@ struct obs_output_info dacast_hls_ffmpeg_output = {
     .raw_video = receive_video,
     .raw_audio = receive_audio,
     .get_total_bytes = dacast_hls_ffmpeg_output_total_bytes,
+    .get_dropped_frames = dacast_hls_ffmpeg_output_dropped_frames
 };
