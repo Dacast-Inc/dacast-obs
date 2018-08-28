@@ -21,8 +21,6 @@
 #include <util/dstr.h>
 #include <util/darray.h>
 #include <util/platform.h>
-#include <curl/curl.h>
-#include <sys/stat.h>
 
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
@@ -108,14 +106,11 @@ struct ffmpeg_output {
 	DARRAY(AVPacket)   packets;
 };
 
-//method=POST master_pl_name=chunklist.m3u8 hls_segment_filename=chunk_%0d.ts hls_time=6 hls_init_time=6 hls_list_size=0 hls_start_number_source=generic hls_allow_cache=0
 /* ------------------------------------------------------------------------- */
 
 static bool new_stream(struct ffmpeg_data *data, AVStream **stream,
 		AVCodec **codec, enum AVCodecID id, const char *name)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>new_stream");
-
 	*codec = (!!name && *name) ?
 		avcodec_find_encoder_by_name(name) :
 		avcodec_find_encoder(id);
@@ -139,7 +134,6 @@ static bool new_stream(struct ffmpeg_data *data, AVStream **stream,
 
 static bool parse_params(AVCodecContext *context, char **opts)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>parse_params");
 	bool ret = true;
 
 	if (!context || !context->priv_data)
@@ -170,7 +164,6 @@ static bool parse_params(AVCodecContext *context, char **opts)
 
 static bool open_video_codec(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>open_video_codec");
 	AVCodecContext *context = data->video->codec;
 	char **opts = strlist_split(data->config.video_settings, ' ', false);
 	int ret;
@@ -216,7 +209,6 @@ static bool open_video_codec(struct ffmpeg_data *data)
 
 static bool init_swscale(struct ffmpeg_data *data, AVCodecContext *context)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>init_swscale");
 	data->swscale = sws_getContext(
 			data->config.width, data->config.height,
 			data->config.format,
@@ -234,7 +226,6 @@ static bool init_swscale(struct ffmpeg_data *data, AVCodecContext *context)
 
 static bool create_video_stream(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>create_video_stream");
 	enum AVPixelFormat closest_format;
 	AVCodecContext *context;
 	struct obs_video_info ovi;
@@ -284,7 +275,6 @@ static bool create_video_stream(struct ffmpeg_data *data)
 
 static bool open_audio_codec(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>open_audio_codec");
 	AVCodecContext *context = data->audio->codec;
 	char **opts = strlist_split(data->config.audio_settings, ' ', false);
 	int ret;
@@ -324,7 +314,6 @@ static bool open_audio_codec(struct ffmpeg_data *data)
 
 static bool create_audio_stream(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>create_audio_stream");
 	AVCodecContext *context;
 	struct obs_audio_info aoi;
 
@@ -368,7 +357,6 @@ static bool create_audio_stream(struct ffmpeg_data *data)
 
 static inline bool init_streams(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>init_streams");
 	AVOutputFormat *format = data->output->oformat;
 
 	if (format->video_codec != AV_CODEC_ID_NONE)
@@ -384,7 +372,6 @@ static inline bool init_streams(struct ffmpeg_data *data)
 
 static inline bool open_output_file(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>open_output_file");
 	AVOutputFormat *format = data->output->oformat;
 	int ret;
 
@@ -406,7 +393,7 @@ static inline bool open_output_file(struct ffmpeg_data *data)
 						AV_DICT_IGNORE_SUFFIX)))
 			dstr_catf(&str, "\n\t%s=%s", entry->key, entry->value);
 
-		blog(LOG_INFO, "Using pd settings: %s", str.array);
+		blog(LOG_INFO, "Using muxer settings: %s", str.array);
 		dstr_free(&str);
 	}
 
@@ -451,7 +438,6 @@ static inline bool open_output_file(struct ffmpeg_data *data)
 
 static void close_video(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>close_video");
 	avcodec_close(data->video->codec);
 	av_frame_unref(data->vframe);
 
@@ -466,7 +452,6 @@ static void close_video(struct ffmpeg_data *data)
 
 static void close_audio(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>close_audio");
 	for (size_t i = 0; i < MAX_AV_PLANES; i++)
 		circlebuf_free(&data->excess_frames[i]);
 
@@ -477,7 +462,6 @@ static void close_audio(struct ffmpeg_data *data)
 
 static void ffmpeg_data_free(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_data_free");
 	if (data->initialized)
 		av_write_trailer(data->output);
 
@@ -506,7 +490,6 @@ static inline const char *safe_str(const char *s)
 
 static enum AVCodecID get_codec_id(const char *name, int id)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>get_codec_id");
 	AVCodec *codec;
 
 	if (id != 0)
@@ -524,7 +507,6 @@ static enum AVCodecID get_codec_id(const char *name, int id)
 
 static void set_encoder_ids(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>set_encoder_ids");
 	data->output->oformat->video_codec = get_codec_id(
 			data->config.video_encoder,
 			data->config.video_encoder_id);
@@ -537,7 +519,6 @@ static void set_encoder_ids(struct ffmpeg_data *data)
 static bool ffmpeg_data_init(struct ffmpeg_data *data,
 		struct ffmpeg_cfg *config)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_data_init");
 	bool is_rtmp = false;
 
 	memset(data, 0, sizeof(struct ffmpeg_data));
@@ -552,10 +533,9 @@ static bool ffmpeg_data_init(struct ffmpeg_data *data,
 	is_rtmp = (astrcmpi_n(config->url, "rtmp://", 7) == 0);
 
 	AVOutputFormat *output_format = av_guess_format(
-			"hls",
+			is_rtmp ? "flv" : data->config.format_name,
 			data->config.url,
-			NULL);
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>format:%s %s", output_format->long_name, output_format->mime_type);
+			is_rtmp ? NULL : data->config.format_mime_type);
 
 	if (output_format == NULL) {
 		blog(LOG_WARNING, "Couldn't find matching output format with "
@@ -604,315 +584,26 @@ fail:
 
 static inline bool stopping(struct ffmpeg_output *output)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>stopping");
 	return os_atomic_load_bool(&output->stopping);
 }
 
 static const char *ffmpeg_output_getname(void *unused)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_getname");
 	UNUSED_PARAMETER(unused);
 	return obs_module_text("FFmpegOutput");
-}
-
-static counter = 0;
-static char* concat(const char *s1, const char *s2)
-{
-    char *result = bzalloc(strlen(s1) + strlen(s2) + 1);//+1 for the null-terminator
-    //in real code you would check for errors in malloc here
-    strncpy(result, s1, strlen(s1));
-    strcat(result, s2);
-    return result;
-}
-
-// char* itoa(int val, int base){
-	
-// 	static char buf[32] = {0};
-	
-// 	int i = 30;
-	
-// 	for(; val && i ; --i, val /= base)
-	
-// 		buf[i] = "0123456789abcdef"[val % base];
-	
-// 	return &buf[i+1];
-	
-// }
-
-static bool is_interesting_log(int log_level, char* log_entry)
-{
-    return log_level == AV_LOG_INFO && strstr(log_entry, "Opening 'chunk_") != NULL;
-}
-
-static int extract_chunk_nb(char* filename)
-{
-    //string should be 'chunk_\d+.ts'
-    int i;
-    int start_index = -1;
-    int end_index = -1;
-
-    for(i = 0; filename[i] != '\0'; i++)
-    {
-        char c = filename[i];
-        if(c == '_'){
-            start_index = i + 1;
-        }
-        if(c == '.'){
-            end_index = i;
-            break;
-        }
-    }
-    if(start_index == -1 || end_index == -1 || start_index == end_index){
-        return -1;
-    }
-
-    char* subbuff = bzalloc(sizeof(char)*((end_index - start_index) + 1));
-    //char subbuff[(end_index - start_index) + 1];
-    memcpy(subbuff, &filename[start_index], end_index - start_index);
-    subbuff[(end_index - start_index)] = '\0';
-
-    int parsed = atoi(subbuff);
-    bfree(subbuff);
-    return parsed;
-}
-
-struct chunk_name{
-    char* filename;
-    int chunk_nb;
-};
-
-static struct chunk_name get_file_to_send()
-{
-    struct os_dirent* dirent;
-    os_dir_t* directory;
-    struct chunk_name greatest_segment = { bstrdup(""), -1 };
-
-    directory = os_opendir("/home/dorian/dacast_repos/obs-studio/build/");
-    
-    if(directory){
-        while( (dirent = os_readdir(directory)) != NULL ){
-            if(strstr(dirent->d_name, "chunk_") != NULL){
-                int chunk_nb = extract_chunk_nb(dirent->d_name);
-                // blog(LOG_INFO, "name: %s, nb: %d", dirent->d_name, chunk_nb);
-
-                if(chunk_nb > greatest_segment.chunk_nb){
-                    greatest_segment.chunk_nb = chunk_nb;
-                    bfree(greatest_segment.filename);
-                    greatest_segment.filename = bstrdup(dirent->d_name);
-                }
-            }
-        }
-        os_closedir(directory);
-    }
-    //TODO filename not necessary anymore
-    char name[25];
-    sprintf(name, "chunk_%d.ts", greatest_segment.chunk_nb);
-    bfree(greatest_segment.filename);
-    greatest_segment.filename = bstrdup(name);
-    // greatest_segment.chunk_nb--;
-    return greatest_segment;
-}
-
-static void send_segment(struct chunk_name to_send)
-{
-    CURL *curl;
-    CURLcode res;
-    struct stat file_info;
-    // curl_off_t speed_upload, total_time;
-    FILE *fd;
-
-    fd = fopen(to_send.filename, "rb"); /* open file to upload */ 
-    if(!fd){
-        blog(LOG_INFO, "coulnt open file");
-        return;
-    }
-    if(fstat(fileno(fd), &file_info) != 0){
-        blog(LOG_INFO, "couldnt read file info");
-        return;
-    }
-
-    /* get a curl handle */ 
-    curl = curl_easy_init();
-    if(curl) {
-        /* First set the URL that is about to receive our POST. This URL can
-        just as well be a https:// URL if that is what should receive the
-        data. */ 
-        // baseurl = 'http://post.dctranslive01-i.akamaihd.net:80/'
-
-//TODO replace concat with sprintf 
-        curl_easy_setopt(curl, CURLOPT_URL, concat("http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/gjjgjggjgj/", to_send.filename));
-        /* tell it to "upload" to the URL */
-        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-        curl_easy_setopt(curl, CURLOPT_PUT, 1L);
-        /* set where to read from (on Windows you need to use READFUNCTION too) */ //TODO DO READ THING
-        curl_easy_setopt(curl, CURLOPT_READDATA, fd);
-        /* and give the size of the upload (optional) */ 
-        curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
-        /* enable verbose for easier tracing */ 
-        // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    
-        /* Perform the request, res will get the return code */ 
-        res = curl_easy_perform(curl);
-        /* Check for errors */ 
-        if(res != CURLE_OK){
-            blog(LOG_INFO, "curl_easy_perform() failed: %s\n",
-                    curl_easy_strerror(res));
-        }else{
-            blog(LOG_INFO, "curl_easy_perform() wasok");
-            /* now extract transfer info */ 
-            // curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed_upload);
-            // curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME_T, &total_time);
-        
-            // blog(LOG_INFO, "Speed: %" CURL_FORMAT_CURL_OFF_T " bytes/sec during %"
-            //         CURL_FORMAT_CURL_OFF_T ".%06ld seconds\n",
-            //         speed_upload,
-            //         (total_time / 1000000), (long)(total_time % 1000000));
-        }
-    
-        /* always cleanup */ 
-        curl_easy_cleanup(curl);
-    }
-    fclose(fd);
-}
-
-static void send_m3u8(struct chunk_name filename_latest_segment)
-{
-    
 }
 
 static void ffmpeg_log_callback(void *param, int level, const char *format,
 		va_list args)
 {
-
-	if (level <= AV_LOG_INFO){
-        blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>old_ffmpeg_log_callback");
-        blogva(LOG_DEBUG, format, args);
-        char out[4096];
-        vsnprintf(out, sizeof(out), bstrdup(format), args);
-        blog(LOG_INFO, "log %d %s", level, out);
-
-        if(is_interesting_log(level, out)){
-            blog(LOG_INFO, "detected log! sending shit straight to space");
-            struct chunk_name to_send = get_file_to_send();
-            if(to_send.chunk_nb == -1){
-                blog(LOG_INFO, "couldnt find file to send");
-                return;
-            }
-            blog(LOG_INFO, "found chunk to send %s nb %d", to_send.filename, to_send.chunk_nb);
-
-            send_segment(to_send);
-            // send_m3u8(to_send);
-        }
-
-        // if(level == AV_LOG_INFO && strstr(out, "Opening 'chunk_") != NULL){
-        //     blog(LOG_INFO, "detected log! sending shit straight to space");
-
-        //     CURL *curl;
-        //     CURLcode res;
-        //     struct stat file_info;
-        //     curl_off_t speed_upload, total_time;
-        //     FILE *fd;
-
-        //     char* snum = itoa(counter, 10);
-        //     if(counter == 0){
-        //         snum = "0";
-        //     }
-        //     char* fileName = concat(concat("chunk_", snum), ".ts");
-        //     blog(LOG_INFO, "filename: %s", fileName);
-        //     counter++;
-
-        //     fd = fopen(fileName, "rb"); /* open file to upload */ 
-        //     if(!fd){
-        //         blog(LOG_INFO, "no fd");
-        //         return;
-        //     }
-        //     if(fstat(fileno(fd), &file_info) != 0){
-        //         blog(LOG_INFO, "no size");
-        //         return;
-        //     }
-
-        //     /* get a curl handle */ 
-        //     curl = curl_easy_init();
-        //     if(curl) {
-        //         /* First set the URL that is about to receive our POST. This URL can
-        //         just as well be a https:// URL if that is what should receive the
-        //         data. */ 
-        //         curl_easy_setopt(curl, CURLOPT_URL, concat("http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/0/0/0/", fileName));
-        //         /* tell it to "upload" to the URL */
-        //         curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-        //         curl_easy_setopt(curl, CURLOPT_POST, 1L);
-        //         /* set where to read from (on Windows you need to use READFUNCTION too) */ //TODO DO READ THIN
-        //         curl_easy_setopt(curl, CURLOPT_READDATA, fd);
-        //         /* and give the size of the upload (optional) */ 
-        //         curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
-        //         /* enable verbose for easier tracing */ 
-        //         // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-            
-        //         /* Perform the request, res will get the return code */ 
-        //         res = curl_easy_perform(curl);
-        //         /* Check for errors */ 
-        //         if(res != CURLE_OK){
-        //             blog(LOG_INFO, "curl_easy_perform() failed: %s\n",
-        //                     curl_easy_strerror(res));
-        //         }else{
-        //             blog(LOG_INFO, "curl_easy_perform() wasok");
-        //             /* now extract transfer info */ 
-        //             // curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed_upload);
-        //             // curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME_T, &total_time);
-                
-        //             // blog(LOG_INFO, "Speed: %" CURL_FORMAT_CURL_OFF_T " bytes/sec during %"
-        //             //         CURL_FORMAT_CURL_OFF_T ".%06ld seconds\n",
-        //             //         speed_upload,
-        //             //         (total_time / 1000000), (long)(total_time % 1000000));
-        //         }
-            
-        //         /* always cleanup */ 
-        //         curl_easy_cleanup(curl);
-        //     }
-        //     fclose(fd);
-            
-        //     //Opening 'chunk_1.ts' for writing
-        //     // regex_t regex;
-        //     // regmatch_t groupArray[1];
-        //     // int reti;
-            
-        //     // reti = regcomp(&regex, "chunk_([0-9]+)", 0);
-        //     // if(reti){
-        //     //     blog(LOG_INFO, "could not compile regex");
-        //     //     return;
-        //     // }
-
-        //     // reti = regexec(&regex, out, 1, groupArray, 0);
-        //     // if(!reti){
-        //     //     int from = groupArray[0].rm_so;
-        //     //     int to = groupArray[0].rm_eo;
-
-        //     //     char subbuff[(to - from) + 1];
-        //     //     memcpy(subbuff, &out[from], to - from);
-        //     //     subbuff[(to - from)] = '\0';
-
-        //     //     blog(LOG_INFO, "sub string: %s", subbuff);
-        //     //     free(subbuff);
-        //     // }else if (reti == REG_NOMATCH){
-        //     //     blog(LOG_INFO, "No match for: %s", out);
-        //     // }else{
-        //     //     char msgbuf[100];
-        //     //     regerror(reti, &regex, msgbuf, sizeof(msgbuf));
-        //     //     blog(LOG_INFO, "Regex match failed: %s\n", msgbuf);
-        //     // }
-        //     // regfree(&regex);
-
-        // }
-
-		// blogva(LOG_INFO, format, args);
-    }
+	if (level <= AV_LOG_INFO)
+		blogva(LOG_DEBUG, format, args);
 
 	UNUSED_PARAMETER(param);
 }
 
 static void *ffmpeg_output_create(obs_data_t *settings, obs_output_t *output)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_create");
 	struct ffmpeg_output *data = bzalloc(sizeof(struct ffmpeg_output));
 	pthread_mutex_init_value(&data->write_mutex);
 	data->output = output;
@@ -941,7 +632,6 @@ static void ffmpeg_deactivate(struct ffmpeg_output *output);
 
 static void ffmpeg_output_destroy(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_destroy");
 	struct ffmpeg_output *output = data;
 
 	if (output) {
@@ -960,7 +650,6 @@ static void ffmpeg_output_destroy(void *data)
 static inline void copy_data(AVFrame *pic, const struct video_data *frame,
 		int height, enum AVPixelFormat format)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>copy_data");
 	int h_chroma_shift, v_chroma_shift;
 	av_pix_fmt_get_chroma_sub_sample(format, &h_chroma_shift, &v_chroma_shift);
 	for (int plane = 0; plane < MAX_AV_PLANES; plane++) {
@@ -986,7 +675,6 @@ static inline void copy_data(AVFrame *pic, const struct video_data *frame,
 
 static void receive_video(void *param, struct video_data *frame)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>receive_video");
 	struct ffmpeg_output *output = param;
 	struct ffmpeg_data   *data   = &output->ff_data;
 
@@ -1047,8 +735,6 @@ static void receive_video(void *param, struct video_data *frame)
 		}
 
 		if (!ret && got_packet && packet.size) {
-	        // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>got packet");
-
 			packet.pts = rescale_ts(packet.pts, context,
 					data->video->time_base);
 			packet.dts = rescale_ts(packet.dts, context,
@@ -1078,7 +764,6 @@ static void receive_video(void *param, struct video_data *frame)
 static void encode_audio(struct ffmpeg_output *output,
 		struct AVCodecContext *context, size_t block_size)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>encode_audio");
 	struct ffmpeg_data *data = &output->ff_data;
 
 	AVPacket packet = {0};
@@ -1138,7 +823,6 @@ static void encode_audio(struct ffmpeg_output *output,
 static bool prepare_audio(struct ffmpeg_data *data,
 		const struct audio_data *frame, struct audio_data *output)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>prepare_audio");
 	*output = *frame;
 
 	if (frame->timestamp < data->start_timestamp) {
@@ -1166,7 +850,6 @@ static bool prepare_audio(struct ffmpeg_data *data,
 
 static void receive_audio(void *param, struct audio_data *frame)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>receive_audio");
 	struct ffmpeg_output *output = param;
 	struct ffmpeg_data   *data   = &output->ff_data;
 	size_t frame_size_bytes;
@@ -1204,7 +887,6 @@ static void receive_audio(void *param, struct audio_data *frame)
 static uint64_t get_packet_sys_dts(struct ffmpeg_output *output,
 		AVPacket *packet)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>get_packet_sys_dts");
 	struct ffmpeg_data *data = &output->ff_data;
 	uint64_t start_ts;
 
@@ -1224,7 +906,6 @@ static uint64_t get_packet_sys_dts(struct ffmpeg_output *output,
 
 static int process_packet(struct ffmpeg_output *output)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>process_packet");
 	AVPacket packet;
 	bool new_packet = false;
 	int ret;
@@ -1240,7 +921,7 @@ static int process_packet(struct ffmpeg_output *output)
 	if (!new_packet)
 		return 0;
 
-	/*blog(LOG_INFO, "size = %d, flags = %lX, stream = %d, "
+	/*blog(LOG_DEBUG, "size = %d, flags = %lX, stream = %d, "
 			"packets queued: %lu",
 			packet.size, packet.flags,
 			packet.stream_index, output->packets.num);*/
@@ -1268,15 +949,12 @@ static int process_packet(struct ffmpeg_output *output)
 
 static void *write_thread(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>write_thread");
-	counter = 0;
-    struct ffmpeg_output *output = data;
+	struct ffmpeg_output *output = data;
 
 	while (os_sem_wait(output->write_sem) == 0) {
 		/* check to see if shutting down */
 		if (os_event_try(output->stop_event) == 0)
 			break;
-	    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>write thread triggered");
 
 		int ret = process_packet(output);
 		if (ret != 0) {
@@ -1309,7 +987,6 @@ static inline const char *get_string_or_null(obs_data_t *settings,
 
 static bool try_connect(struct ffmpeg_output *output)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>try_connect");
 	video_t *video = obs_output_video(output->output);
 	const struct video_output_info *voi = video_output_get_info(video);
 	struct ffmpeg_cfg config;
@@ -1343,12 +1020,6 @@ static bool try_connect(struct ffmpeg_output *output)
 	config.height = (int)obs_output_get_height(output->output);
 	config.format = obs_to_ffmpeg_video_format(
 			video_output_get_format(video));
-    blog(LOG_INFO, "configs>>>>>>>>\nurl:%s\nformatname:%s\nmime type:%s\nvideo bitrate:%d\naudio bitrate:%d\ngop size:%d\nvideo encoder:%s\naudio encoder:%s\n"
-        "video settings:%s\naudio settings:%s\nscale width:%d\nscale height:%d\nwidth:%d\nheight:%d\n", 
-        config.url, config.format_name, config.format_mime_type, config.video_bitrate,
-        config.audio_bitrate, config.gop_size, config.video_encoder,
-        config.audio_encoder, config.video_settings, config.audio_settings, 
-        config.scale_width, config.scale_height, config.width, config.height);
 
 	if (format_is_yuv(voi->format)) {
 		config.color_range = voi->range == VIDEO_RANGE_FULL ?
@@ -1393,45 +1064,6 @@ static bool try_connect(struct ffmpeg_output *output)
 		return false;
 	}
 
-    blog(LOG_INFO, "configs:\n"
-        "url: %s\n"
-        "format_name: %s\n"
-        "format_mime_type: %s\n"
-        "muxer_settings: %s\n"
-        "video_bitrate: %d\n"
-        "audio_bitrate: %d\n"
-        "gop_size: %d\n"
-        "video_encoder: %s\n"
-        "video_encoder_id: %d\n"
-        "video_settings: %s\n"
-        "audio_encoder: %s\n"
-        "audio_encoder_id: %d\n"
-        "audio_settings: %s\n"
-        "scale_width: %d\n"
-        "scale_height: %d\n"
-        "width: %d\n"
-        "height: %d\n"
-        "format: %d\n",
-        config.url,
-        config.format_name,
-        config.format_mime_type,
-        config.muxer_settings,
-        config.video_bitrate,
-        config.audio_bitrate,
-        config.gop_size,
-        config.video_encoder,
-        config.video_encoder_id,
-        config.video_settings,
-        config.audio_encoder,
-        config.audio_encoder_id,
-        config.audio_settings,
-        config.scale_width,
-        config.scale_height,
-        config.width,
-        config.height,
-        config.format
-    );
-
 	obs_output_set_video_conversion(output->output, NULL);
 	obs_output_set_audio_conversion(output->output, &aci);
 	obs_output_begin_data_capture(output->output, 0);
@@ -1441,7 +1073,6 @@ static bool try_connect(struct ffmpeg_output *output)
 
 static void *start_thread(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>start_thread");
 	struct ffmpeg_output *output = data;
 
 	if (!try_connect(output))
@@ -1454,7 +1085,6 @@ static void *start_thread(void *data)
 
 static bool ffmpeg_output_start(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_start");
 	struct ffmpeg_output *output = data;
 	int ret;
 
@@ -1472,7 +1102,6 @@ static bool ffmpeg_output_start(void *data)
 
 static void ffmpeg_output_full_stop(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_full_stop");
 	struct ffmpeg_output *output = data;
 
 	if (output->active) {
@@ -1483,7 +1112,6 @@ static void ffmpeg_output_full_stop(void *data)
 
 static void ffmpeg_output_stop(void *data, uint64_t ts)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_stop");
 	struct ffmpeg_output *output = data;
 
 	if (output->active) {
@@ -1498,7 +1126,6 @@ static void ffmpeg_output_stop(void *data, uint64_t ts)
 
 static void ffmpeg_deactivate(struct ffmpeg_output *output)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_deactivate");
 	if (output->write_thread_active) {
 		os_event_signal(output->stop_event);
 		os_sem_post(output->write_sem);
@@ -1519,7 +1146,6 @@ static void ffmpeg_deactivate(struct ffmpeg_output *output)
 
 static uint64_t ffmpeg_output_total_bytes(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_total_bytes");
 	struct ffmpeg_output *output = data;
 	return output->total_bytes;
 }
