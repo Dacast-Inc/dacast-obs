@@ -34,6 +34,8 @@ struct chunk_name {
 	int chunk_nb;
 };
 
+typedef	DARRAY(struct chunk_name*) chunk_name_list_t;
+
 struct ffmpeg_cfg {
 	const char         *url;
 	const char         *format_name;
@@ -101,7 +103,7 @@ struct dacast_hls_output {
 	obs_output_t       *output;
 	struct ffmpeg_data ff_data;
 	DARRAY(AVPacket)   packets;
-	DARRAY(struct chunk_name*)   segments_to_send_queue;
+	chunk_name_list_t   segments_to_send_queue;
 	const char* url;
 	int dropped_frames;
 
@@ -716,13 +718,17 @@ static void *write_thread(void *data)
 }
 
 /** this runs in the send_thread */
-static bool send_queued_segments(struct dacast_hls_output* output, int* cleanup_before) {
+static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_list_t send_queue, int* cleanup_before) {
 	//TODO check after every segment if the stop has been triggered
 	//TODO copy the segment list to another list before doing the curls s the mutex doesnt get loked while the curl is running
 	
 	int dropped_segments = 0;
-	while (output->segments_to_send_queue.num > MAX_QUEUED_SEGMENTS) {
-		da_erase(output->segments_to_send_queue, 0);
+	while (send_queue.num > MAX_QUEUED_SEGMENTS) {
+		struct chunk_name** to_delete_ptr = send_queue.array;
+		struct chunk_name* to_delete = *to_delete_ptr;
+		da_erase(send_queue, 0);
+		bfree(to_delete->filename);
+		bfree(to_delete);
 		dropped_segments++;
 	}
 	if (dropped_segments > 0) {
@@ -733,13 +739,13 @@ static bool send_queued_segments(struct dacast_hls_output* output, int* cleanup_
 	int highest_segment = -1;
 
 	while (true) {
-		if (!output->segments_to_send_queue.num) {
+		if (!send_queue.num) {
 			break;
 		}
-		struct chunk_name** to_send_ptr = output->segments_to_send_queue.array;
+		struct chunk_name** to_send_ptr = send_queue.array;
 		struct chunk_name* to_send = *to_send_ptr;
-		da_erase(output->segments_to_send_queue, 0);
-        blog(LOG_INFO, "queued: %d, sending segment %s nb %d, to %s", output->segments_to_send_queue.num, to_send->filename, to_send->chunk_nb, output->url);
+		da_erase(send_queue, 0);
+        blog(LOG_INFO, "queued: %d, sending segment %s nb %d, to %s", send_queue.num, to_send->filename, to_send->chunk_nb, output->url);
 
 		if (!send_segment(output->url, to_send, akamaiSessionId)) {
 			blog("error sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
@@ -767,10 +773,18 @@ static void* send_thread(void* data) {
 		blog(LOG_INFO, "send thread triggered");
 
 		int cleanup_before = -1;
+		chunk_name_list_t send_queue;
+		da_init(send_queue);
 
+		//copy the list so the mutex isnt blocked while doing the curl
 		pthread_mutex_lock(&output->send_mutex);
-		bool sent_sucessfully = send_queued_segments(output, &cleanup_before);
+		da_copy(send_queue, output->segments_to_send_queue);
+		while (output->segments_to_send_queue.num)
+			da_erase(output->segments_to_send_queue, 0);
 		pthread_mutex_unlock(&output->send_mutex);
+
+		bool sent_sucessfully = send_queued_segments(output, send_queue, &cleanup_before);
+		da_free(send_queue);
 
 		if (!sent_sucessfully) {
 			pthread_detach(output->send_thread);
