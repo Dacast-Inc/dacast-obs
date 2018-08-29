@@ -204,38 +204,6 @@ static int extract_chunk_nb(char* filename)
     return parsed;
 }
 
-// static struct chunk_name get_file_to_send()
-// {
-//     struct os_dirent* dirent;
-//     os_dir_t* directory;
-//     struct chunk_name greatest_segment = { bstrdup(""), -1 };
-
-//     directory = os_opendir("/home/dorian/dacast_repos/obs-studio/build/");
-    
-//     if(directory){
-//         while( (dirent = os_readdir(directory)) != NULL ){
-//             if(strstr(dirent->d_name, "chunk_") != NULL){
-//                 int chunk_nb = extract_chunk_nb(dirent->d_name);
-//                 // blog(LOG_INFO, "name: %s, nb: %d", dirent->d_name, chunk_nb);
-
-//                 if(chunk_nb > greatest_segment.chunk_nb){
-//                     greatest_segment.chunk_nb = chunk_nb;
-//                     bfree(greatest_segment.filename);
-//                     greatest_segment.filename = bstrdup(dirent->d_name);
-//                 }
-//             }
-//         }
-//         os_closedir(directory);
-//     }
-//     //TODO filename not necessary anymore
-//     char name[25];
-//     sprintf(name, "chunk_%d.ts", greatest_segment.chunk_nb);
-//     bfree(greatest_segment.filename);
-//     greatest_segment.filename = bstrdup(name);
-//     // greatest_segment.chunk_nb--;
-//     return greatest_segment;
-// }
-
 static bool cleanup_segments(char* dirpath, int cleanup_below)
 {
     // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>cleanup segments below %d", cleanup_below);
@@ -306,6 +274,95 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 	// fprintf(stderr, "*** We read %" CURL_FORMAT_CURL_OFF_T
 	// 	" bytes from file\n", nread);
 	return retcode;
+}
+
+
+static bool send_m3u8(char* ingest_url)
+{
+	//TODO Move the common curl code into a send_file method
+	CURL *curl;
+	CURLcode res;
+	struct stat file_info;
+	// curl_off_t speed_upload, total_time;
+	FILE *fd;
+
+	blog(LOG_INFO, "opening file to send, chunklist.m3u8");
+	fd = fopen("chunklist.m3u8", "rb"); /* open file to upload */
+	if (!fd) {
+		blog(LOG_INFO, "coulnt open file");
+		goto fail;
+	}
+	if (fstat(fileno(fd), &file_info) != 0) {
+		blog(LOG_INFO, "couldnt read file info");
+		goto fail;
+	}
+	blog(LOG_INFO, "opened file, sending");
+
+	/* get a curl handle */
+	curl = curl_easy_init();
+	if (curl) {
+		/* First set the URL that is about to receive our POST. This URL can
+		just as well be a https:// URL if that is what should receive the
+		data. */
+		// baseurl = 'http://post.dctranslive01-i.akamaihd.net:80/'
+
+	//TODO replace concat with sprintf 
+	//http://post.dctranslive02-i.akamaihd.net/674923/live-104207-480006_1_1/ -> moche
+	//http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/
+	//"http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/"
+		char* url = concat(ingest_url, "chunklist.m3u8");
+
+		blog(LOG_INFO, "sending segment to %s", url);
+
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+
+		bfree(url);
+
+		/* tell it to "upload" to the URL */
+		curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+		curl_easy_setopt(curl, CURLOPT_PUT, 1L);
+		curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
+		/* set where to read from (on Windows you need to use READFUNCTION too) */ //TODO DO READ THING
+		curl_easy_setopt(curl, CURLOPT_READDATA, fd);
+		/* and give the size of the upload (optional) */
+		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
+		/* enable verbose for easier tracing */
+		// curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+
+		/* Perform the request, res will get the return code */
+		res = curl_easy_perform(curl);
+		/* Check for errors */
+		if (res != CURLE_OK) {
+			blog(LOG_INFO, "[m3u8] curl_easy_perform() failed (%d): %s\n",
+				res, curl_easy_strerror(res));
+			if (res != CURLE_WRITE_ERROR) {
+				goto fail;
+			}
+		}
+		else {
+			blog(LOG_INFO, "[m3u8] curl_easy_perform() wasok");
+			/* now extract transfer info */
+			// curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed_upload);
+			// curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME_T, &total_time);
+
+			// blog(LOG_INFO, "Speed: %" CURL_FORMAT_CURL_OFF_T " bytes/sec during %"
+			//         CURL_FORMAT_CURL_OFF_T ".%06ld seconds\n",
+			//         speed_upload,
+			//         (total_time / 1000000), (long)(total_time % 1000000));
+		}
+
+		/* always cleanup */
+		curl_easy_cleanup(curl);
+	}
+	fclose(fd);
+	return true;
+
+fail:
+	fclose(fd);
+	if (curl) {
+		curl_easy_cleanup(curl);
+	}
+	return false;
 }
 
 static bool send_segment(char* ingest_url, struct chunk_name* to_send, char* sessionId)
@@ -507,9 +564,9 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 
 	if (data->config.muxer_settings)
 		bfree(data->config.muxer_settings);
-    if(data->config.url)
+   /* if(data->config.url)
         bfree(data->config.url);
-	
+	*/
 
 	if (data->output) {
 		if ((data->output->oformat->flags & AVFMT_NOFILE) == 0)
@@ -794,8 +851,15 @@ static void* send_thread(void* data) {
 			break;
 		}
 
-		if (os_event_try(output->stop_event) == 0) 
+		sent_sucessfully = send_m3u8(output->url);
+
+		if (!sent_sucessfully) {
+			pthread_detach(output->send_thread);
+			output->send_thread_active = false;
+			obs_output_signal_stop(output->output, OBS_OUTPUT_ERROR);
+			ffmpeg_deactivate(output);
 			break;
+		}
 
 		if (cleanup_before >= 0) {
 			blog(LOG_INFO, "starting cleanup");
@@ -884,7 +948,7 @@ format: 23
     char* hls_ingest_url = bstrdup(obs_data_get_string(settings, "hls_ingest_url"));
 
     output->url = hls_ingest_url;
-	config.url = concat(hls_ingest_url, "chunklist.m3u8");
+    config.url = "chunklist.m3u8";//concat(hls_ingest_url, "chunklist.m3u8");
 	config.format_name = "hls";
 	config.format_mime_type = NULL;
 	config.muxer_settings = bstrdup(muxer_settings);
