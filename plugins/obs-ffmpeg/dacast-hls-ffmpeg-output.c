@@ -633,6 +633,7 @@ static void dacast_hls_ffmpeg_output_destroy(void *data)
 
     if(akamaiSessionId){
         bfree(akamaiSessionId);
+        akamaiSessionId = NULL;
     }
 
 	if (output) {
@@ -906,6 +907,7 @@ static bool try_connect(struct dacast_hls_output *output)
     char* session_id = rand_string(10);
     if(akamaiSessionId){
         bfree(akamaiSessionId);
+        akamaiSessionId = NULL;
     }
     akamaiSessionId = bstrdup(session_id);
     char* session_id_arg = concat(" hls_base_url=", session_id);

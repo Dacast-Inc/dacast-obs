@@ -52,3 +52,4 @@ struct BasicOutputHandler {
 
 BasicOutputHandler *CreateSimpleOutputHandler(OBSBasic *main);
 BasicOutputHandler *CreateAdvancedOutputHandler(OBSBasic *main);
+static void apply_hls_preset(int preset_id, obs_data_t *settings);

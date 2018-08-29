@@ -655,6 +655,11 @@ bool SimpleOutput::StartStreaming(obs_service_t *service)
 	if (!type)
 		type = "rtmp_output";
 
+    const char* streamType = config_get_string(main->Config(), "SimpleOutput", "StreamType");
+    if(!QString(streamType).compare("HLS")){
+        type = "dacast_hls_ffmpeg_output";
+    }
+
 	/* XXX: this is messy and disgusting and should be refactored */
 	if (outputType != type) {
 		streamDelayStarting.Disconnect();
@@ -736,13 +741,17 @@ bool SimpleOutput::StartStreaming(obs_service_t *service)
 			"NewSocketLoopEnable");
 	bool enableLowLatencyMode = config_get_bool(main->Config(), "Output",
 			"LowLatencyEnable");
-
+    int presetId = config_get_int(main->Config(), "SimpleOutput", "HlsQuality");
+    const char* hlsIngestUrl = config_get_string(main->Config(), "SimpleOutput", "HlsIngestUrl");
+    
 	obs_data_t *settings = obs_data_create();
 	obs_data_set_string(settings, "bind_ip", bindIP);
 	obs_data_set_bool(settings, "new_socket_loop_enabled",
 			enableNewSocketLoop);
 	obs_data_set_bool(settings, "low_latency_mode_enabled",
 			enableLowLatencyMode);
+    obs_data_set_string(settings, "hls_ingest_url", hlsIngestUrl);
+    apply_hls_preset(presetId, settings);
 	obs_output_update(streamOutput, settings);
 	obs_data_release(settings);
 
@@ -767,6 +776,50 @@ bool SimpleOutput::StartStreaming(obs_service_t *service)
 			has_last_error ? "  Last Error: " : "",
 			has_last_error ? error : "");
 	return false;
+}
+
+static void apply_hls_preset(int preset_id, obs_data_t *settings){
+    
+    int hlsVideoBitrate, hlsAudioBitrate, hlsKeyframeInterval, hlsScaleWidth, hlsScaleHeight;
+    hlsKeyframeInterval = 2;
+    switch(preset_id){
+        case 0: //ultralow
+            hlsVideoBitrate = 350;
+            hlsAudioBitrate = 128;
+            hlsScaleWidth = 426;
+            hlsScaleHeight = 240;
+            break;
+        case 1: //low
+            hlsVideoBitrate = 800;
+            hlsAudioBitrate = 128;
+            hlsScaleWidth = 640;
+            hlsScaleHeight = 360;
+            break;
+        case 2: // SD
+            hlsVideoBitrate = 1200;
+            hlsAudioBitrate = 128;
+            hlsScaleWidth = 1024;
+            hlsScaleHeight = 576;
+            break;
+        case 3: //hd
+            hlsVideoBitrate = 1600;
+            hlsAudioBitrate = 160;
+            hlsScaleWidth = 1280;
+            hlsScaleHeight = 720;
+            break;
+        case 4: //full hd
+            hlsVideoBitrate = 4100;
+            hlsAudioBitrate = 160;
+            hlsScaleWidth = 1920;
+            hlsScaleHeight = 1080;
+            break;
+    }
+
+    obs_data_set_int(settings, "hls_video_bitrate", hlsVideoBitrate);
+    obs_data_set_int(settings, "hls_audio_bitrate", hlsAudioBitrate);
+    obs_data_set_int(settings, "hls_keyframe_interval", hlsKeyframeInterval);
+    obs_data_set_int(settings, "hls_scale_width", hlsScaleWidth);
+    obs_data_set_int(settings, "hls_scale_height", hlsScaleHeight);
 }
 
 static void remove_reserved_file_characters(string &s)

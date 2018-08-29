@@ -337,6 +337,9 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 	HookWidget(ui->simpleOutRecQuality,  COMBO_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->simpleOutRecEncoder,  COMBO_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->simpleOutMuxCustom,   EDIT_CHANGED,   OUTPUTS_CHANGED);
+	HookWidget(ui->simpleOutStreamType,  COMBO_CHANGED,   OUTPUTS_CHANGED);
+	HookWidget(ui->simpleOutHlsQuality,  COMBO_CHANGED,   OUTPUTS_CHANGED);
+	HookWidget(ui->simpleOutHlsIngest,   EDIT_CHANGED,   OUTPUTS_CHANGED);
 	HookWidget(ui->simpleReplayBuf,      CHECK_CHANGED,  OUTPUTS_CHANGED);
 	HookWidget(ui->simpleRBSecMax,       SCROLL_CHANGED, OUTPUTS_CHANGED);
 	HookWidget(ui->simpleRBMegsMax,      SCROLL_CHANGED, OUTPUTS_CHANGED);
@@ -720,6 +723,10 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
     config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 1920);
     config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 1080);
     config_set_default_string(main->Config(), "AdvOut", "HlsIngestUrl", "");
+
+    config_set_default_string(main->Config(), "SimpleOutput", "StreamType", "RTMP");
+    config_set_default_int(main->Config(), "SimpleOutput", "HlsQuality", 2);
+    config_set_default_string(main->Config(), "SimpleOutput", "HlsIngest", "");
 }
 
 OBSBasicSettings::~OBSBasicSettings()
@@ -1499,6 +1506,9 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
 			"RecRBTime");
 	int rbSize = config_get_int(main->Config(), "SimpleOutput",
 			"RecRBSize");
+    const char* streamTypeSimple = config_get_string(main->Config(), "SimpleOutput", "StreamType");
+    int hlsSimpleQuality = config_get_int(main->Config(), "SimpleOutput", "HlsQuality");
+    const char* hlsIngestUrl = config_get_string(main->Config(), "SimpleOutput", "HlsIngestUrl");
 
 	curPreset = preset;
 	curQSVPreset = qsvPreset;
@@ -1510,6 +1520,10 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
 	ui->simpleOutputPath->setText(path);
 	ui->simpleNoSpace->setChecked(noSpace);
 	ui->simpleOutputVBitrate->setValue(videoBitrate);
+
+    ui->simpleOutStreamType->setCurrentIndex(IdxFromStreamType(streamTypeSimple));
+    ui->simpleOutHlsQuality->setCurrentIndex(hlsSimpleQuality);
+    ui->simpleOutHlsIngest->setText(hlsIngestUrl);
 
 	int idx = ui->simpleOutRecFormat->findText(format);
 	ui->simpleOutRecFormat->setCurrentIndex(idx);
@@ -1547,6 +1561,7 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
 	ui->simpleRBMegsMax->setValue(rbSize);
 
 	SimpleStreamingEncoderChanged();
+    on_simpleOutStreamType_currentIndexChanged(ui->simpleOutStreamType->currentIndex());
 }
 
 void OBSBasicSettings::LoadAdvOutputStreamingSettings()
@@ -1567,7 +1582,7 @@ void OBSBasicSettings::LoadAdvOutputStreamingSettings()
     int hlsScaleHeight = config_get_int(main->Config(), "AdvOut", "HlsScaleHeight");
     const char* hlsIngestUrl = config_get_string(main->Config(), "AdvOut", "HlsIngestUrl");
 
-    
+   
 	ui->advOutApplyService->setChecked(applyServiceSettings);
 	ui->advOutUseRescale->setChecked(rescale);
 	ui->advOutRescale->setEnabled(rescale);
@@ -3054,6 +3069,10 @@ void OBSBasicSettings::SaveOutputSettings()
 	SaveCheckBox(ui->simpleReplayBuf, "SimpleOutput", "RecRB");
 	SaveSpinBox(ui->simpleRBSecMax, "SimpleOutput", "RecRBTime");
 	SaveSpinBox(ui->simpleRBMegsMax, "SimpleOutput", "RecRBSize");
+    config_set_string(main->Config(), "SimpleOutput", "StreamType", 
+        StreamTypeFromIdx(ui->simpleOutStreamType->currentIndex()));
+    config_set_int(main->Config(), "SimpleOutput", "HlsQuality", ui->simpleOutHlsQuality->currentIndex());
+    SaveEdit(ui->simpleOutHlsIngest, "SimpleOutput", "HlsIngestUrl");
 
 	curAdvStreamEncoder = GetComboData(ui->advOutEncoder);
 
@@ -3414,6 +3433,52 @@ void OBSBasicSettings::on_buttonBox_clicked(QAbstractButton *button)
 		ClearChanged();
 		close();
 	}
+}
+
+void OBSBasicSettings::on_simpleOutStreamType_currentIndexChanged(int idx){
+
+	QString streamType = QString(StreamTypeFromIdx(ui->simpleOutStreamType->currentIndex()));
+
+    if(streamType.compare("HLS") == 0){
+        //hls mode
+        ui->label_19->hide();//label video bitrate
+        ui->simpleOutRecEncoderLabel_2->hide();
+        ui->label_20->hide(); //label audio bitrate
+        ui->simpleOutAdvanced->hide(); 
+        ui->simpleOutEnforce->hide(); 
+        ui->label_24->hide(); // label encoder preset
+        ui->label_23->hide(); // label customer encoder settings
+        ui->simpleOutputVBitrate->hide(); 
+        ui->simpleOutStrEncoder->hide(); 
+        ui->simpleOutputABitrate->hide(); 
+        ui->simpleOutPreset->hide(); 
+        ui->simpleOutCustom->hide(); 
+
+        ui->simpleOutHlsQualityLabel->show();
+        ui->simpleOutHlsQuality->show();
+        ui->simpleOutHlsIngestLabel->show();
+        ui->simpleOutHlsIngest->show();
+    }else{
+        //rtmp mode
+        ui->label_19->show();//label video bitrate
+        ui->simpleOutRecEncoderLabel_2->show();
+        ui->label_20->show(); //label audio bitrate
+        ui->simpleOutAdvanced->show(); 
+        ui->simpleOutEnforce->show(); 
+        ui->label_24->show(); // label encoder preset
+        ui->label_23->show(); // label customer encoder settings
+        ui->simpleOutputVBitrate->show(); 
+        ui->simpleOutStrEncoder->show(); 
+        ui->simpleOutputABitrate->show(); 
+        ui->simpleOutPreset->show(); 
+        ui->simpleOutCustom->show(); 
+
+        ui->simpleOutHlsQualityLabel->hide();
+        ui->simpleOutHlsQuality->hide();
+        ui->simpleOutHlsIngestLabel->hide();
+        ui->simpleOutHlsIngest->hide();
+    }
+	UNUSED_PARAMETER(idx);
 }
 
 void OBSBasicSettings::on_advOutStreamType_currentIndexChanged(int idx)
