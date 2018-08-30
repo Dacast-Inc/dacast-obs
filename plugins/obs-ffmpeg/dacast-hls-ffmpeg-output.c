@@ -17,6 +17,11 @@
 #include "closest-pixel-format.h"
 #include "obs-ffmpeg-compat.h"
 
+//TODO replace concat with sprintf 
+//TODO move static members into the struct dacast_hls_output and make a dictionnary of the instances static 
+//TODO Move the common curl code into a send_file method
+
+
 //if there is more than MAX_QUEUED_SEGMENTS queued for sending, the surplus segments are dropped
 const int MAX_QUEUED_SEGMENTS = 4;
 
@@ -122,7 +127,6 @@ struct dacast_hls_output {
 
 };
 
-//TODO move thoses into the struct dacast_hls_output and make a dictionnary of the instances static 
 static char* akamaiSessionId;
 static os_event_t *hls_error_event;
 static struct dacast_hls_output* outputStatic;
@@ -228,8 +232,8 @@ static bool cleanup_segments(char* dirpath, int cleanup_below)
                 bfree(filepath_part);
                 bfree(filepath);
                 if(unlink_result != 0){
-                    blog(LOG_INFO, "couldnt unlink file %s, result: %d", filepath, unlink_result);
-                    goto fail;
+                    blog(LOG_INFO, "[Process] Couldnt unlink file (%d) %s, result: %d", unlink_result, filepath, unlink_result);
+                    //goto fail; dont do anything if it fails?
                 }
             }
         }
@@ -276,27 +280,23 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 	return retcode;
 }
 
-
-static bool send_m3u8(char* ingest_url)
-{
-	//TODO Move the common curl code into a send_file method
+static bool send_file(char* filename, char* url) {
+	blog(LOG_INFO, "[CallStack] send_file(filename=%s, url=%s)", filename, url);
 	CURL *curl;
 	CURLcode res;
 	struct stat file_info;
 	// curl_off_t speed_upload, total_time;
 	FILE *fd;
 
-	blog(LOG_INFO, "opening file to send, chunklist.m3u8");
-	fd = fopen("chunklist.m3u8", "rb"); /* open file to upload */
+	fd = fopen(filename, "rb"); /* open file to upload */
 	if (!fd) {
-		blog(LOG_INFO, "coulnt open file");
+		blog(LOG_INFO, "[ProcessDetail] Couldnt open file '%s'", filename);
 		goto fail;
 	}
 	if (fstat(fileno(fd), &file_info) != 0) {
-		blog(LOG_INFO, "couldnt read file info");
+		blog(LOG_INFO, "[ProcessDetail] Couldnt read file info for '%s'", filename);
 		goto fail;
 	}
-	blog(LOG_INFO, "opened file, sending");
 
 	/* get a curl handle */
 	curl = curl_easy_init();
@@ -304,25 +304,13 @@ static bool send_m3u8(char* ingest_url)
 		/* First set the URL that is about to receive our POST. This URL can
 		just as well be a https:// URL if that is what should receive the
 		data. */
-		// baseurl = 'http://post.dctranslive01-i.akamaihd.net:80/'
-
-	//TODO replace concat with sprintf 
-	//http://post.dctranslive02-i.akamaihd.net/674923/live-104207-480006_1_1/ -> moche
-	//http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/
-	//"http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/"
-		char* url = concat(ingest_url, "chunklist.m3u8");
-
-		blog(LOG_INFO, "sending segment to %s", url);
 
 		curl_easy_setopt(curl, CURLOPT_URL, url);
-
-		bfree(url);
-
 		/* tell it to "upload" to the URL */
 		curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
 		curl_easy_setopt(curl, CURLOPT_PUT, 1L);
 		curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
-		/* set where to read from (on Windows you need to use READFUNCTION too) */ //TODO DO READ THING
+		/* set where to read from (on Windows you need to use READFUNCTION too) */
 		curl_easy_setopt(curl, CURLOPT_READDATA, fd);
 		/* and give the size of the upload (optional) */
 		curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
@@ -333,14 +321,14 @@ static bool send_m3u8(char* ingest_url)
 		res = curl_easy_perform(curl);
 		/* Check for errors */
 		if (res != CURLE_OK) {
-			blog(LOG_INFO, "[m3u8] curl_easy_perform() failed (%d): %s\n",
+			blog(LOG_INFO, "[ProcessDetail] curl_easy_perform() failed (%d): %s\n",
 				res, curl_easy_strerror(res));
 			if (res != CURLE_WRITE_ERROR) {
 				goto fail;
 			}
 		}
 		else {
-			blog(LOG_INFO, "[m3u8] curl_easy_perform() wasok");
+			blog(LOG_INFO, "[ProcessDetail] curl_easy_perform() was successful");
 			/* now extract transfer info */
 			// curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed_upload);
 			// curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME_T, &total_time);
@@ -365,94 +353,30 @@ fail:
 	return false;
 }
 
+
+static bool send_m3u8(char* ingest_url)
+{
+	blog(LOG_INFO, "[CallStack] send_m3u8(ingest_url=%s)", ingest_url);
+
+	char* url = bzalloc(strlen(ingest_url) + strlen("chunklist.m3u8") + 1);//+1 for the null-terminator 
+	sprintf(url, "%schunklist.m3u8", ingest_url);
+
+	bool result = send_file("chunklist.m3u8", url);
+	bfree(url);
+	return result;
+}
+
 static bool send_segment(char* ingest_url, struct chunk_name* to_send, char* sessionId)
 {
-    CURL *curl;
-    CURLcode res;
-    struct stat file_info;
-    // curl_off_t speed_upload, total_time;
-    FILE *fd;
+	blog(LOG_INFO, "[CallStack] send_segment(ingest_url=%s, to_send=%p, sessionId=%s)", ingest_url, to_send, sessionId);
 
-    blog(LOG_INFO, "opening file to send, %s", to_send->filename);
-    fd = fopen(to_send->filename, "rb"); /* open file to upload */ 
-    if(!fd){
-        blog(LOG_INFO, "coulnt open file");
-	goto fail;
-    }
-    if(fstat(fileno(fd), &file_info) != 0){
-        blog(LOG_INFO, "couldnt read file info");
-	goto fail;
-    }
-    blog(LOG_INFO, "opened file, sending");
+	char* url = bzalloc(strlen(ingest_url) + strlen(sessionId) + 1/*for '/'*/ + strlen(to_send->filename) + 1);//+1 for the null-terminator 
+	sprintf(url, "%s%s/%s", ingest_url, sessionId, to_send->filename);
 
-    /* get a curl handle */ 
-    curl = curl_easy_init();
-    if(curl) {
-        /* First set the URL that is about to receive our POST. This URL can
-        just as well be a https:// URL if that is what should receive the
-        data. */ 
-        // baseurl = 'http://post.dctranslive01-i.akamaihd.net:80/'
+	bool result = send_file(to_send->filename, url);
 
-//TODO replace concat with sprintf 
-//http://post.dctranslive02-i.akamaihd.net/674923/live-104207-480006_1_1/ -> moche
-//http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/
-//"http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/"
-        char* url_part = concat(ingest_url, sessionId);
-        char* url_w_sessid = concat(url_part, "/");
-        char* url = concat(url_w_sessid, to_send->filename);
-
-        blog(LOG_INFO, "sending segment to %s", url);
-
-        curl_easy_setopt(curl, CURLOPT_URL, url);
-
-        bfree(url_part);
-        bfree(url_w_sessid);
-        bfree(url);
-
-        /* tell it to "upload" to the URL */
-        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-        curl_easy_setopt(curl, CURLOPT_PUT, 1L);
-	curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
-        /* set where to read from (on Windows you need to use READFUNCTION too) */ //TODO DO READ THING
-        curl_easy_setopt(curl, CURLOPT_READDATA, fd);
-        /* and give the size of the upload (optional) */ 
-        curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
-        /* enable verbose for easier tracing */ 
-        // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    
-        /* Perform the request, res will get the return code */ 
-        res = curl_easy_perform(curl);
-        /* Check for errors */ 
-        if(res != CURLE_OK){
-            blog(LOG_INFO, "curl_easy_perform() failed (%d): %s\n",
-                    res, curl_easy_strerror(res));
-            if(res != CURLE_WRITE_ERROR){
-                goto fail;
-            }
-        }else{
-            blog(LOG_INFO, "curl_easy_perform() wasok");
-            /* now extract transfer info */ 
-            // curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed_upload);
-            // curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME_T, &total_time);
-        
-            // blog(LOG_INFO, "Speed: %" CURL_FORMAT_CURL_OFF_T " bytes/sec during %"
-            //         CURL_FORMAT_CURL_OFF_T ".%06ld seconds\n",
-            //         speed_upload,
-            //         (total_time / 1000000), (long)(total_time % 1000000));
-        }
-    
-        /* always cleanup */ 
-        curl_easy_cleanup(curl);
-    }
-    fclose(fd);
-    return true;
-
-fail:
-    fclose(fd);
-    if (curl) {
-	curl_easy_cleanup(curl);
-    }
-    return false;
+	bfree(url);
+	return result;
 }
 
 
@@ -471,15 +395,13 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
         if(is_interesting_log(level, out)){
             struct chunk_name* to_send = get_file_to_send2(out);
             if(to_send->chunk_nb == -1){
-                blog(LOG_INFO, "couldnt find file to send");
                 return;
             }
-            blog(LOG_INFO, "found chunk to send %s nb %d", to_send->filename, to_send->chunk_nb);
+            blog(LOG_INFO, "[Process] Found chunk to send filename=%s, chunk_nb=%d", to_send->filename, to_send->chunk_nb);
 
 	    pthread_mutex_lock(&outputStatic->send_mutex);
 	    da_push_back(outputStatic->segments_to_send_queue, &to_send);
 	    pthread_mutex_unlock(&outputStatic->send_mutex);
-	    blog(LOG_INFO, "trigerring send thread");
 
 	    os_sem_post(outputStatic->send_sem);
         }
@@ -489,7 +411,7 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
 
 static void *dacast_hls_ffmpeg_output_create(obs_data_t *settings, obs_output_t *output)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_create");
+    blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_create(settings=%p, output=%p)", settings, output);
 	struct dacast_hls_output *data = bzalloc(sizeof(struct dacast_hls_output));
 	pthread_mutex_init_value(&data->write_mutex);
 	pthread_mutex_init_value(&data->send_mutex);
@@ -520,6 +442,7 @@ fail:
 	pthread_mutex_destroy(&data->send_mutex);
 	os_event_destroy(data->stop_event);
     os_event_destroy(hls_error_event);
+    hls_error_event = NULL;
 	bfree(data);
 	return NULL;
 }
@@ -527,7 +450,7 @@ fail:
 
 static void close_video(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_close_video");
+    blog(LOG_INFO, "[CallStack] close_video(data=%p)", data);
 	avcodec_close(data->video->codec);
 	av_frame_unref(data->vframe);
 
@@ -542,7 +465,7 @@ static void close_video(struct ffmpeg_data *data)
 
 static void close_audio(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_close_audio");
+    blog(LOG_INFO, "[CallStack] close_audio(data=%p)", data);
 	for (size_t i = 0; i < MAX_AV_PLANES; i++)
 		circlebuf_free(&data->excess_frames[i]);
 
@@ -553,7 +476,7 @@ static void close_audio(struct ffmpeg_data *data)
 
 static void ffmpeg_data_free(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_ffmpeg_data_free");
+    blog(LOG_INFO, "[CallStack] ffmpeg_data_free(data=%p)", data);
 	if (data->initialized)
 		av_write_trailer(data->output);
 
@@ -564,9 +487,6 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 
 	if (data->config.muxer_settings)
 		bfree(data->config.muxer_settings);
-   /* if(data->config.url)
-        bfree(data->config.url);
-	*/
 
 	if (data->output) {
 		if ((data->output->oformat->flags & AVFMT_NOFILE) == 0)
@@ -580,7 +500,7 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 
 static void ffmpeg_deactivate(struct dacast_hls_output *output)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_deactivate");
+    blog(LOG_INFO, "[CallStack] ffmpeg_deactivate(output=%p)", output);
     if (output->write_thread_active || output->send_thread_active) {
 	    os_event_signal(output->stop_event);
     }
@@ -617,7 +537,7 @@ static void ffmpeg_deactivate(struct dacast_hls_output *output)
 
 static void ffmpeg_output_full_stop(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>ffmpeg_output_full_stop");
+    blog(LOG_INFO, "[CallStack] ffmpeg_output_full_stop(data=%p)", data);
 	struct dacast_hls_output *output = data;
 
 	if (output->active) {
@@ -628,7 +548,7 @@ static void ffmpeg_output_full_stop(void *data)
 
 static void dacast_hls_ffmpeg_output_destroy(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_destroy");
+    blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_destroy(data=%p)", data);
 	struct dacast_hls_output *output = data;
 
     if(akamaiSessionId){
@@ -648,6 +568,7 @@ static void dacast_hls_ffmpeg_output_destroy(void *data)
 		os_sem_destroy(output->send_sem);
 		os_event_destroy(output->stop_event);
         os_event_destroy(hls_error_event);
+	hls_error_event = NULL;
         bfree(output->url);
 		bfree(data);
         outputStatic = NULL;
@@ -704,6 +625,7 @@ static int process_packet(struct dacast_hls_output *output)
 	pthread_mutex_lock(&output->write_mutex);
 	if (output->packets.num) {
 		packet = output->packets.array[0];
+		//blog(LOG_INFO, "[ProcessDetail] Got new packet, buf addr=%p", packet.buf);
 		da_erase(output->packets, 0);
 		new_packet = true;
 	}
@@ -724,10 +646,11 @@ static int process_packet(struct dacast_hls_output *output)
 			return 0;
 		}
 	}
+	//blog(LOG_INFO, "[ProcessDetail] get_packet_sys_dts happened, buf addr is now=%p", packet.buf);
+
 
 	output->total_bytes += packet.size;
 
-    //blog(LOG_INFO, "out pts: %" PRId64 " dts: %" PRId64, packet.pts, packet.dts);
 
 	ret = av_interleaved_write_frame(output->ff_data.output, &packet);
 	if (ret < 0) {
@@ -742,7 +665,7 @@ static int process_packet(struct dacast_hls_output *output)
 
 static void *write_thread(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>write_thread");
+    blog(LOG_INFO, "[CallStack] write_thread(data=%p)", data);
     struct dacast_hls_output *output = data;
 
 	while (os_sem_wait(output->write_sem) == 0) {
@@ -753,10 +676,9 @@ static void *write_thread(void *data)
 
         bool has_hls_error = os_event_try(hls_error_event) == 0;
         int ret = 0;
-        if(!has_hls_error){
-		    ret = process_packet(output);
-        }
+		ret = process_packet(output);
 		if (ret != 0 || has_hls_error) {
+			blog(LOG_INFO, "[Process] Write thread stopping on error. ret=%d, has_hls_error=%d", ret, has_hls_error);
 			int code = OBS_OUTPUT_ERROR;
 
 			pthread_detach(output->write_thread);
@@ -777,8 +699,7 @@ static void *write_thread(void *data)
 
 /** this runs in the send_thread */
 static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_list_t send_queue, int* cleanup_before) {
-	//TODO check after every segment if the stop has been triggered
-	//TODO copy the segment list to another list before doing the curls s the mutex doesnt get loked while the curl is running
+	blog(LOG_INFO, "[CallStack] send_queued_segments(output=%p, send_queue=%p, cleanup_before=%p)", output, send_queue, cleanup_before);
 	
 	int dropped_segments = 0;
 	while (send_queue.num > MAX_QUEUED_SEGMENTS) {
@@ -791,7 +712,7 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 	}
 	if (dropped_segments > 0) {
 		output->dropped_frames += output->ff_data.config.gop_size*dropped_segments;
-		blog(LOG_INFO, "too many segments queued, dropped %d segments", dropped_segments);
+		blog(LOG_INFO, "[Process] Too many segments queued, dropped %d segments", dropped_segments);
 	}
 
 	int highest_segment = -1;
@@ -803,7 +724,7 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 		struct chunk_name** to_send_ptr = send_queue.array;
 		struct chunk_name* to_send = *to_send_ptr;
 		da_erase(send_queue, 0);
-        blog(LOG_INFO, "queued: %d, sending segment %s nb %d, to %s", send_queue.num, to_send->filename, to_send->chunk_nb, output->url);
+		blog(LOG_INFO, "[Process] Sending segment number=%d, name=%s, queued=%d, url=%s", to_send->chunk_nb, to_send->filename, send_queue.num, output->url);
 
 		if (!send_segment(output->url, to_send, akamaiSessionId)) {
 			blog("error sending segment %s nb %d", to_send->filename, to_send->chunk_nb);
@@ -814,7 +735,7 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 		if (highest_segment < to_send->chunk_nb) {
 			highest_segment = to_send->chunk_nb;
 		}
-		blog(LOG_INFO, "sent segment %s nb %d, starting cleanup", to_send->filename, to_send->chunk_nb);
+		blog(LOG_INFO, "[Process] Sent segment number=%d, name=%s, queued=%d, url=%s", to_send->chunk_nb, to_send->filename, send_queue.num, output->url);
 		bfree(to_send->filename);
 		bfree(to_send);
 	}
@@ -823,12 +744,12 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 }
 
 static void* send_thread(void* data) {
-	blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>send_thread");
+	blog(LOG_INFO, "[CallStack] send_thread(data=%p)", data);
 	struct dacast_hls_output *output = data;
 	while (os_sem_wait(output->send_sem) == 0) {
 		if (os_event_try(output->stop_event) == 0) 
 			break;
-		blog(LOG_INFO, "send thread triggered");
+		blog(LOG_INFO, "[Process] Send thread trigerred");
 
 		int cleanup_before = -1;
 		chunk_name_list_t send_queue;
@@ -863,14 +784,12 @@ static void* send_thread(void* data) {
 		}
 
 		if (cleanup_before >= 0) {
-			blog(LOG_INFO, "starting cleanup");
 			char* cwd = os_get_abs_path_ptr(".");
 			bool cleanup_result = cleanup_segments(cwd, cleanup_before - 3);
 			bfree(cwd);
 			if (!cleanup_result) {
-				blog(LOG_ERROR, "error cleaning up segment below %d", cleanup_before - 3);
+				blog(LOG_ERROR, "[ProcessDetail] Error cleaning up segment below %d", cleanup_before - 3);
 			}
-			blog(LOG_INFO, "cleaned up");	
 		}
 		
 		
@@ -881,7 +800,7 @@ static void* send_thread(void* data) {
 
 static bool try_connect(struct dacast_hls_output *output)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_try_connect");
+    blog(LOG_INFO, "[CallStack] try_connect(output=%p)", output);
 	video_t *video = obs_output_video(output->output);
 	const struct video_output_info *voi = video_output_get_info(video);
 	struct ffmpeg_cfg config;
@@ -897,33 +816,26 @@ static bool try_connect(struct dacast_hls_output *output)
 // " hls_time=2"
 // " hls_init_time=2"
 
-    char* keyframeIntervalStr = bzalloc(sizeof(char)*3);
-    int keyframeIntervalSec = (int)obs_data_get_int(settings, "hls_keyframe_interval");
-    sprintf(keyframeIntervalStr, "%d", keyframeIntervalSec);
-    char* hls_time = concat(" hls_time=", keyframeIntervalStr);
-    char* hls_init_time = concat(" hls_init_time=", keyframeIntervalStr);
-    char* extra_hls_muxer_settings = concat(hls_time, hls_init_time);
+	char* session_id = rand_string(10);
+	if (akamaiSessionId) {
+		bfree(akamaiSessionId);
+		akamaiSessionId = NULL;
+	}
+	akamaiSessionId = bstrdup(session_id);
 
-    char* session_id = rand_string(10);
-    if(akamaiSessionId){
-        bfree(akamaiSessionId);
-        akamaiSessionId = NULL;
-    }
-    akamaiSessionId = bstrdup(session_id);
-    char* session_id_arg = concat(" hls_base_url=", session_id);
-    char* session_id_total = concat(session_id_arg, "/");
-
-    char* extra_muxer_settings = concat(extra_hls_muxer_settings, session_id_total);
-
-    muxer_settings = concat(MUXER_SETTINGS, extra_muxer_settings);
-    bfree(keyframeIntervalStr);
+	int keyframeIntervalSec = (int)obs_data_get_int(settings, "hls_keyframe_interval");
+	muxer_settings = bzalloc(
+		strlen(MUXER_SETTINGS)
+		+ strlen(" hls_time=")
+		+ (sizeof(char) * 3) //keyframe length
+		+ strlen(" hls_init_time=")
+		+ (sizeof(char) * 3) //keyframe length
+		+ strlen(" hls_base_url=")
+		+ (sizeof(char) * 10) // akamaiSessionId
+		+ strlen("/")
+		+ 1);//+1 for the null-terminator 
+	sprintf(muxer_settings, "%s hls_time=%d hls_init_time=%d hls_base_url=%s/", MUXER_SETTINGS, keyframeIntervalSec, keyframeIntervalSec, session_id);
     bfree(session_id);
-    bfree(session_id_arg);
-    bfree(session_id_total);
-    bfree(hls_time);
-    bfree(hls_init_time);
-    bfree(extra_hls_muxer_settings);
-    bfree(extra_muxer_settings);
 
     /*
 url: http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/chunklist.m3u8
@@ -1068,11 +980,11 @@ format: 23
 
 static void *start_thread(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_start_thread");
+    blog(LOG_INFO, "[CallStack] start_thread(data=%p)", data);
 	struct dacast_hls_output *output = data;
 
     char* cwd = os_get_abs_path_ptr(".");
-    blog(LOG_INFO, "cwd: %s", cwd);
+    blog(LOG_INFO, "[ProcessDetail] Cwd: %s", cwd);
     bool cleanup_result = cleanup_segments(cwd, INT_MAX);
     bfree(cwd);
     if(!cleanup_result){
@@ -1090,7 +1002,7 @@ static void *start_thread(void *data)
 
 static bool dacast_hls_ffmpeg_output_start(void *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_start");
+	blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_start(data=%p)", data);
 	struct dacast_hls_output *output = data;
 	outputStatic = output;
 	int ret;
@@ -1110,7 +1022,7 @@ static bool dacast_hls_ffmpeg_output_start(void *data)
 
 static void dacast_hls_ffmpeg_output_stop(void *data, uint64_t ts)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_stop");
+	blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_stop(data=%p, ts=%" PRId64 ")", data, ts);
 	struct dacast_hls_output *output = data;
 
 	if (output->active) {
@@ -1125,7 +1037,7 @@ static void dacast_hls_ffmpeg_output_stop(void *data, uint64_t ts)
 
 static enum AVCodecID get_codec_id(const char *name, int id)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>get_codec_id");
+	blog(LOG_INFO, "[CallStack] get_codec_id(name=%s, id=%d)", name, id);
 	AVCodec *codec;
 
 	if (id != 0)
@@ -1143,19 +1055,21 @@ static enum AVCodecID get_codec_id(const char *name, int id)
 
 static void set_encoder_ids(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>set_encoder_ids");
-	data->output->oformat->video_codec = get_codec_id(
+	blog(LOG_INFO, "[CallStack] set_encoder_ids(data=%p)", data);
+	data->output->oformat->video_codec = avcodec_find_encoder_by_name("libx264")->id;
+		/*get_codec_id(
 			data->config.video_encoder,
-			data->config.video_encoder_id);
+			data->config.video_encoder_id);*/
 
-	data->output->oformat->audio_codec = get_codec_id(
+	data->output->oformat->audio_codec = avcodec_find_encoder_by_name("aac")->id;
+		/*get_codec_id(
 			data->config.audio_encoder,
-			data->config.audio_encoder_id);
+			data->config.audio_encoder_id);*/
 }
 
 static bool parse_params(AVCodecContext *context, char **opts)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_parse_params");
+	blog(LOG_INFO, "[CallStack] parse_params(context=%p, opts=%p)", context, opts);
 	bool ret = true;
 
 	if (!context || !context->priv_data)
@@ -1187,7 +1101,7 @@ static bool parse_params(AVCodecContext *context, char **opts)
 static bool new_stream(struct ffmpeg_data *data, AVStream **stream,
 		AVCodec **codec, enum AVCodecID id, const char *name)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_new_stream");
+	blog(LOG_INFO, "[CallStack] new_stream(data=%p, stream=%p, codec=%p, id=%d, name=%s)", data, stream, codec, id, name);
 
 	*codec = (!!name && *name) ?
 		avcodec_find_encoder_by_name(name) :
@@ -1212,7 +1126,7 @@ static bool new_stream(struct ffmpeg_data *data, AVStream **stream,
 
 static bool open_video_codec(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>open_video_codec");
+	blog(LOG_INFO, "[CallStack] open_video_codec(data=%p)", data);
 	AVCodecContext *context = data->video->codec;
 	char **opts = strlist_split(data->config.video_settings, ' ', false);
 	int ret;
@@ -1258,7 +1172,7 @@ static bool open_video_codec(struct ffmpeg_data *data)
 
 static bool open_audio_codec(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_open_audio_codec");
+	blog(LOG_INFO, "[CallStack] open_audio_codec(data=%p)", data);
 	AVCodecContext *context = data->audio->codec;
 	char **opts = strlist_split(data->config.audio_settings, ' ', false);
 	int ret;
@@ -1298,7 +1212,7 @@ static bool open_audio_codec(struct ffmpeg_data *data)
 
 static bool init_swscale(struct ffmpeg_data *data, AVCodecContext *context)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacastinit_swscale");
+	blog(LOG_INFO, "[CallStack] init_swscale(data=%p, context=%p)", data, context);
 	data->swscale = sws_getContext(
 			data->config.width, data->config.height,
 			data->config.format,
@@ -1316,7 +1230,7 @@ static bool init_swscale(struct ffmpeg_data *data, AVCodecContext *context)
 
 static bool create_video_stream(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_create_video_stream");
+	blog(LOG_INFO, "[CallStack] create_video_stream(data=%p)", data);
 	enum AVPixelFormat closest_format;
 	AVCodecContext *context;
 	struct obs_video_info ovi;
@@ -1344,6 +1258,9 @@ static bool create_video_stream(struct ffmpeg_data *data)
 	context->colorspace     = data->config.color_space;
 	context->color_range    = data->config.color_range;
 	context->thread_count   = 0;
+	//data->output->oformat->flags |= AVFMT_NOTIMESTAMPS; //added that because of a bug that said
+	//Application provided invalid, non monotonically increasing dts to muxer in stream 0: 1356000 >= 1347000
+	//probably not a real fix
 
 	data->video->time_base = context->time_base;
 
@@ -1366,7 +1283,7 @@ static bool create_video_stream(struct ffmpeg_data *data)
 
 static bool create_audio_stream(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_create_audio_stream");
+	blog(LOG_INFO, "[CallStack] create_audio_stream(data=%p)", data);
 	AVCodecContext *context;
 	struct obs_audio_info aoi;
 
@@ -1410,7 +1327,7 @@ static bool create_audio_stream(struct ffmpeg_data *data)
 
 static inline bool init_streams(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_init_streams");
+	blog(LOG_INFO, "[CallStack] init_streams(data=%p)", data);
 	AVOutputFormat *format = data->output->oformat;
 
 	if (format->video_codec != AV_CODEC_ID_NONE)
@@ -1426,12 +1343,12 @@ static inline bool init_streams(struct ffmpeg_data *data)
 
 static inline bool open_output_file(struct ffmpeg_data *data)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>open_output_file");
+	blog(LOG_INFO, "[CallStack] open_output_file(data=%p)", data);
 	AVOutputFormat *format = data->output->oformat;
 	int ret;
 
 	AVDictionary *dict = NULL;
-    blog(LOG_INFO, "muxer_Settings str: %s", data->config.muxer_settings);
+    blog(LOG_INFO, "[ProcessDetail] muxer_settings=%s", data->config.muxer_settings);
 	if ((ret = av_dict_parse_string(&dict, data->config.muxer_settings,
 				"=", " ", 0))) {
 		blog(LOG_WARNING, "Failed to parse muxer settings: %s\n%s",
@@ -1449,7 +1366,7 @@ static inline bool open_output_file(struct ffmpeg_data *data)
 						AV_DICT_IGNORE_SUFFIX)))
 			dstr_catf(&str, "\n\t%s=%s", entry->key, entry->value);
 
-		blog(LOG_INFO, "dacast Using muxer settings: %s", str.array);
+		blog(LOG_INFO, "[ProcessDetail] Using muxer settings: %s", str.array);
 		dstr_free(&str);
 	}
 
@@ -1457,7 +1374,7 @@ static inline bool open_output_file(struct ffmpeg_data *data)
 		ret = avio_open2(&data->output->pb, data->config.url,
 				AVIO_FLAG_WRITE, NULL, &dict);
 		if (ret < 0) {
-			blog(LOG_WARNING, "dacast Couldn't open '%s', %s",
+			blog(LOG_WARNING, "Couldn't open '%s', %s",
 					data->config.url, av_err2str(ret));
 			av_dict_free(&dict);
 			return false;
@@ -1470,7 +1387,7 @@ static inline bool open_output_file(struct ffmpeg_data *data)
 
 	ret = avformat_write_header(data->output, &dict);
 	if (ret < 0) {
-		blog(LOG_WARNING, "dacast Error opening '%s': %s",
+		blog(LOG_WARNING, "Error opening '%s': %s",
 				data->config.url, av_err2str(ret));
 		return false;
 	}
@@ -1502,7 +1419,7 @@ static inline const char *safe_str(const char *s)
 
 static bool ffmpeg_data_init(struct ffmpeg_data *data, struct ffmpeg_cfg *config)
 {
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_ffmpeg_data_init");
+	blog(LOG_INFO, "[CallStack] ffmpeg_data_init(data=%p, config=%p)", data, config);
 
 	memset(data, 0, sizeof(struct ffmpeg_data));
 	data->config = *config;
@@ -1523,7 +1440,7 @@ static bool ffmpeg_data_init(struct ffmpeg_data *data, struct ffmpeg_cfg *config
 				safe_str(data->config.format_mime_type));
 		goto fail;
 	}
-    blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_format:%s %s", output_format->long_name, output_format->mime_type);
+    //blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_format:%s %s", output_format->long_name, output_format->mime_type);
 
 	avformat_alloc_output_context2(&data->output, output_format, NULL, NULL);
 
@@ -1555,7 +1472,7 @@ fail:
 static void encode_audio(struct dacast_hls_output *output,
 		struct AVCodecContext *context, size_t block_size)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>encode_audio");
+	//blog(LOG_INFO, "[CallStack] encode_audio(output=%p, context=%p, block_size=%d)", output, context, block_size);
 	struct ffmpeg_data *data = &output->ff_data;
 
 	AVPacket packet = {0};
@@ -1618,7 +1535,7 @@ static void encode_audio(struct dacast_hls_output *output,
 static bool prepare_audio(struct ffmpeg_data *data,
 		const struct audio_data *frame, struct audio_data *output)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>prepare_audio");
+	//blog(LOG_INFO, "[CallStack] prepare_audio(data=%p, frame=%p, output=%p)", data, frame, output);
 	*output = *frame;
 
 	if (frame->timestamp < data->start_timestamp) {
@@ -1647,7 +1564,7 @@ static bool prepare_audio(struct ffmpeg_data *data,
 
 static void receive_audio(void *param, struct audio_data *frame)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>receive_audio");
+	//blog(LOG_INFO, "[CallStack] receive_audio(param=%p, frame=%p)", param, frame);
 	struct dacast_hls_output *output = param;
 	struct ffmpeg_data   *data   = &output->ff_data;
 	size_t frame_size_bytes;
@@ -1686,7 +1603,7 @@ static void receive_audio(void *param, struct audio_data *frame)
 static inline void copy_data(AVFrame *pic, const struct video_data *frame,
 		int height, enum AVPixelFormat format)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>copy_data");
+	//blog(LOG_INFO, "[CallStack] copy_data(pic=%p, frame=%p, height=%d, format=%d)", pic, frame, height, format);
 	int h_chroma_shift, v_chroma_shift;
 	av_pix_fmt_get_chroma_sub_sample(format, &h_chroma_shift, &v_chroma_shift);
 	for (int plane = 0; plane < MAX_AV_PLANES; plane++) {
@@ -1712,7 +1629,7 @@ static inline void copy_data(AVFrame *pic, const struct video_data *frame,
 
 static void receive_video(void *param, struct video_data *frame)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_receive_video");
+	//blog(LOG_INFO, "[CallStack] receive_video(param=%p, frame=%p)", param, frame);
 	struct dacast_hls_output *output = param;
 	struct ffmpeg_data   *data   = &output->ff_data;
 
@@ -1804,7 +1721,8 @@ static void receive_video(void *param, struct video_data *frame)
 
 static uint64_t dacast_hls_ffmpeg_output_total_bytes(void *data)
 {
-    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_total_bytes");
+	//blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_total_bytes(data=%p)", data);
+	// blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>dacast_output_total_bytes");
     //this is used for the bitrate display at the bottom right of OBS
 	struct dacast_hls_output *output = data;
 	return output->total_bytes;
@@ -1813,6 +1731,7 @@ static uint64_t dacast_hls_ffmpeg_output_total_bytes(void *data)
 
 static int dacast_hls_ffmpeg_output_dropped_frames(void *data)
 {
+	//blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_dropped_frames(data=%p)", data);
 	struct dacast_hls_output *output = data;
 	return output->dropped_frames;
 }
