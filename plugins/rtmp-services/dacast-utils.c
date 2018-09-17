@@ -188,33 +188,45 @@ dacast_channel* channel_from_json_obj(json_t* channel)
     dacast_channel* dc_channel; 
  
     config = json_object_get(channel, "config"); 
-    if(!json_is_object(config)) 
+    if (!json_is_object(config)) {
+	    blog(LOG_INFO, ".config is not an object");
         return NULL; 
+    }
  
  
     title_json = json_object_get(channel, "title"); 
-    if(!json_is_string(title_json)) 
+    if (!json_is_string(title_json)) {
+	blog(LOG_INFO, ".title is not a string");
         return NULL; 
+    }
     title = json_string_value(title_json); 
  
     rtmp_endpoint_json = json_object_get(config, "publishing_point_primary"); 
-    if(!json_is_string(rtmp_endpoint_json)) 
+    if (!json_is_string(rtmp_endpoint_json)) {
+	blog(LOG_INFO, ".config.publishing_point_primary is not a string");
         return NULL; 
+    }
     rtmp_endpoint = json_string_value(rtmp_endpoint_json); 
  
     stream_name_json = json_object_get(config, "stream_name"); 
-    if(!json_is_string(stream_name_json)) 
+    if (!json_is_string(stream_name_json)) {
+	blog(LOG_INFO, ".config.stream_name is not a string");
         return NULL; 
+    }
     stream_name = json_string_value(stream_name_json); 
  
     login_json = json_object_get(config, "login"); 
-    if(!json_is_string(login_json)) 
+    if (!json_is_string(login_json)) {
+	blog(LOG_INFO, ".config.login is not a string");
         return NULL; 
+    }
     login = json_string_value(login_json); 
  
     password_json = json_object_get(config, "password"); 
-    if(!json_is_string(password_json)) 
+    if (!json_is_string(password_json)) {
+	blog(LOG_INFO, ".config.password is not a string");
         return NULL; 
+    }
     password = json_string_value(password_json); 
  
     dc_channel = bzalloc(sizeof(dacast_channel)); 
@@ -224,12 +236,30 @@ dacast_channel* channel_from_json_obj(json_t* channel)
     dc_channel->login           = bstrdup(login); 
     dc_channel->password        = bstrdup(password); 
     return dc_channel; 
-} 
+}
+
+/// removes the NULL from the array
+/// this will free the input channel array
+dacast_channel_array* cleanup_channels(dacast_channel_array* old_array, size_t old_array_length, size_t new_array_length) {
+	dacast_channel_array* channels = bzalloc(sizeof(dacast_channel_array));
+	channels->channels = bzalloc(sizeof(dacast_channel*) * new_array_length);
+	channels->count = new_array_length;
+	int iNew = 0, iOld = 0;
+
+	for (iOld = 0; iOld < old_array_length; iOld++) {
+		if (old_array->channels[iOld]) {
+			channels->channels[iNew++] = old_array->channels[iOld];
+		}
+	}
+	//free_channels(old_array); //probably gonna free the channels and crash
+	bfree(old_array);
+	return channels;
+}
  
 dacast_result* get_channels(const char* apikey) 
 { 
     char* text; 
-    const char* base_url = "https://api.dacast.com/v2/channel?apikey="; 
+    const char* base_url = "https://api.dacast.com/v2/external/obs/channel?apikey="; 
     char* url = concat(base_url, apikey); 
      
     size_t i; 
@@ -238,7 +268,8 @@ dacast_result* get_channels(const char* apikey)
     json_t* data; 
     json_error_t error; 
     dacast_channel_array* channels; 
-    dacast_result* result = bzalloc(sizeof(dacast_result)); 
+    dacast_result* result = bzalloc(sizeof(dacast_result));
+    size_t nbNullChannel = 0;
  
     text = request(url); 
     bfree(url); 
@@ -260,7 +291,7 @@ dacast_result* get_channels(const char* apikey)
         return result; 
     } 
  
-    if(!json_is_object(root) || !json_is_array(json_object_get(root, "data"))) 
+    if(!json_is_array(root))
     { 
         result->isError = true; 
         result->error = "The received JSON structure is unexpected"; 
@@ -268,8 +299,7 @@ dacast_result* get_channels(const char* apikey)
         return result; 
     } 
  
-    data = json_object_get(root, "data"); 
-    data_length = json_array_size(data); 
+    data_length = json_array_size(root); 
     channels = bzalloc(sizeof(dacast_channel_array)); 
     channels->channels = bzalloc(sizeof(dacast_channel*) * data_length); 
     channels->count = data_length; 
@@ -279,7 +309,7 @@ dacast_result* get_channels(const char* apikey)
         dacast_channel* dc_channel; 
  
  
-        channel = json_array_get(data, i); 
+        channel = json_array_get(root, i); 
         if(!json_is_object(channel)) 
         { 
             result->isError = true; 
@@ -291,16 +321,26 @@ dacast_result* get_channels(const char* apikey)
          
         dc_channel = channel_from_json_obj(channel); 
         if(dc_channel == NULL) 
-        { 
-            result->isError = true; 
+        {
+		blog(LOG_WARNING, "[ProcessDetails] ERROR: One of the members of the channel is not correctly formatted");
+		nbNullChannel++;
+		channels->channels[i] = NULL;
+		continue;
+
+        /*    result->isError = true; 
             result->error = "One of the members of the channel is not correctly formatted"; 
             json_decref(root); 
             free_channels(channels); 
-            return result; 
-        } 
+            return result; */
+        }
+	blog(LOG_INFO, "[ProcessDetails] got channel %s", dc_channel->title);
  
         channels->channels[i] = dc_channel; 
-    } 
+    }
+
+    if (nbNullChannel != 0) {
+	    channels = cleanup_channels(channels, data_length, data_length - nbNullChannel);
+    }
  
     json_decref(root); 
     result->isError = false; 

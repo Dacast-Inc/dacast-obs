@@ -107,10 +107,12 @@ static bool refresh_button_clicked(obs_properties_t *props, obs_property_t *prop
  
     dacast_result* result = get_channels(apikey_static); 
     if(result->isError) 
-    { 
+    {
+	    blog(LOG_ERROR, "error getting dacast channel list: %s", result->error);
         // txt = result->error; 
-        //TODO show error message 
-        bfree(result->error); 
+        //TODO show error message
+	/*if(result->error)
+		bfree(result->error); */
     } 
     else 
     { 
