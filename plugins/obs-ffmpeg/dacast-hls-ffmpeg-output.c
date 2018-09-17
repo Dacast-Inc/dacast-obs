@@ -346,7 +346,9 @@ static bool send_file(char* filename, char* url) {
 	return true;
 
 fail:
-	fclose(fd);
+	if (fd) {
+		fclose(fd);
+	}
 	if (curl) {
 		curl_easy_cleanup(curl);
 	}
