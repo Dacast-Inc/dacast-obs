@@ -718,14 +718,14 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 
     config_set_default_string(main->Config(), "AdvOut", "StreamType", "RTMP");
     config_set_default_int(main->Config(), "AdvOut", "HlsAudioBitrate", 128);
-    config_set_default_int(main->Config(), "AdvOut", "HlsVideoBitrate", 2000);
+    config_set_default_int(main->Config(), "AdvOut", "HlsVideoBitrate", 800);
     config_set_default_int(main->Config(), "AdvOut", "HlsKeyframeInterval", 2);
-    config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 1920);
-    config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 1080);
+    config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 640);
+    config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 360);
     config_set_default_string(main->Config(), "AdvOut", "HlsIngestUrl", "");
 
     config_set_default_string(main->Config(), "SimpleOutput", "StreamType", "RTMP");
-    config_set_default_int(main->Config(), "SimpleOutput", "HlsQuality", 2);
+    config_set_default_int(main->Config(), "SimpleOutput", "HlsQuality", 1);
     config_set_default_string(main->Config(), "SimpleOutput", "HlsIngest", "");
 }
 
@@ -3505,8 +3505,8 @@ void OBSBasicSettings::on_advOutStreamType_currentIndexChanged(int idx)
         ui->advOutHlsIngestUrlLabel->show();
 
         streamEncoderProps->hide();
-        ui->label_28->hide();//label for audio tracks
-        ui->widget_8->hide();//container for audio tracks
+        // ui->label_28->hide();//label for audio tracks
+        // ui->widget_8->hide();//container for audio tracks
         ui->advOutEncLabel->hide();
         ui->advOutEncoder->hide();
         ui->advOutApplyService->hide();
@@ -3527,8 +3527,8 @@ void OBSBasicSettings::on_advOutStreamType_currentIndexChanged(int idx)
         ui->advOutHlsIngestUrlLabel->hide();
 
         streamEncoderProps->show();
-        ui->label_28->show();//label for audio tracks
-        ui->widget_8->show();//container for audio tracks
+        // ui->label_28->show();//label for audio tracks
+        // ui->widget_8->show();//container for audio tracks
         ui->advOutEncLabel->show();
         ui->advOutEncoder->show();
         ui->advOutApplyService->show();

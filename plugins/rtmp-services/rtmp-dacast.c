@@ -16,7 +16,7 @@ static char* apikey_static;
 static const char* dacast_get_name(void* unused) 
 { 
     UNUSED_PARAMETER(unused); 
-    return "Dacast"; 
+    return "DaCast streaming as a service"; 
 } 
  
 static void dacast_update(void* data, obs_data_t* settings) 
@@ -133,7 +133,7 @@ static obs_properties_t* dacast_custom_properties(void* unused)
     obs_properties_t* properties = obs_properties_create(); 
     obs_property_t* apikey_prop; 
  
-    apikey_prop = obs_properties_add_text(properties, "apikey", "API key", OBS_TEXT_PASSWORD); 
+    apikey_prop = obs_properties_add_text(properties, "apikey", "OBS encoder key", OBS_TEXT_PASSWORD); 
     obs_property_set_modified_callback(apikey_prop, apikey_modified); 
     obs_properties_add_list(properties, "channel_list", "Channel lists", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING); 
     obs_properties_add_button(properties, "refresh_button", "Refresh list of channels", refresh_button_clicked); 

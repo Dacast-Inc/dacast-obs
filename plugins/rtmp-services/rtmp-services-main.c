@@ -97,9 +97,9 @@ bool obs_module_load(void)
 	bfree(cache_dir);
 #endif
 
+    obs_register_service(&dacast_service); 
 	obs_register_service(&rtmp_common_service);
 	obs_register_service(&rtmp_custom_service);
-    obs_register_service(&dacast_service); 
 	return true;
 }
 
