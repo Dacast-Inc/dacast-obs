@@ -281,6 +281,19 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 	  main             (qobject_cast<OBSBasic*>(parent)),
 	  ui               (new Ui::OBSBasicSettings)
 {
+
+	config_set_default_string(main->Config(), "AdvOut", "StreamType", "RTMP");
+	config_set_default_int(main->Config(), "AdvOut", "HlsAudioBitrate", 128);
+	config_set_default_int(main->Config(), "AdvOut", "HlsVideoBitrate", 800);
+	config_set_default_int(main->Config(), "AdvOut", "HlsKeyframeInterval", 2);
+	config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 640);
+	config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 360);
+	config_set_default_string(main->Config(), "AdvOut", "HlsIngestUrl", "");
+
+	config_set_default_string(main->Config(), "SimpleOutput", "StreamType", "RTMP");
+	config_set_default_int(main->Config(), "SimpleOutput", "HlsQuality", 1);
+	config_set_default_string(main->Config(), "SimpleOutput", "HlsIngest", "");
+
 	string path;
 
 	ui->setupUi(this);
@@ -714,19 +727,6 @@ OBSBasicSettings::OBSBasicSettings(QWidget *parent)
 	SimpleRecordingQualityChanged();
 
 	UpdateAutomaticReplayBufferCheckboxes();
-
-
-    config_set_default_string(main->Config(), "AdvOut", "StreamType", "RTMP");
-    config_set_default_int(main->Config(), "AdvOut", "HlsAudioBitrate", 128);
-    config_set_default_int(main->Config(), "AdvOut", "HlsVideoBitrate", 800);
-    config_set_default_int(main->Config(), "AdvOut", "HlsKeyframeInterval", 2);
-    config_set_default_int(main->Config(), "AdvOut", "HlsScaleWidth", 640);
-    config_set_default_int(main->Config(), "AdvOut", "HlsScaleHeight", 360);
-    config_set_default_string(main->Config(), "AdvOut", "HlsIngestUrl", "");
-
-    config_set_default_string(main->Config(), "SimpleOutput", "StreamType", "RTMP");
-    config_set_default_int(main->Config(), "SimpleOutput", "HlsQuality", 1);
-    config_set_default_string(main->Config(), "SimpleOutput", "HlsIngest", "");
 }
 
 OBSBasicSettings::~OBSBasicSettings()
