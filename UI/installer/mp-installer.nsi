@@ -6,8 +6,8 @@ Unicode true
 !define APPNAME "OBS Studio"
 
 !ifndef APPVERSION
-!define APPVERSION "17.0.2"
-!define SHORTVERSION "17.0.2"
+!define APPVERSION "21.1.2"
+!define SHORTVERSION "21.1.2"
 !endif
 
 !define APPNAMEANDVERSION "OBS Studio ${SHORTVERSION}"
@@ -45,7 +45,7 @@ RequestExecutionLevel admin
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE PreReqCheck
 
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "new\core\data\obs-studio\license\gplv2.txt"
+!insertmacro MUI_PAGE_LICENSE "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\data\obs-studio\license\gplv2.txt"
 !insertmacro MUI_PAGE_DIRECTORY
 !ifdef FULL
 	!insertmacro MUI_PAGE_COMPONENTS
@@ -114,16 +114,16 @@ Function PreReqCheck
 	ClearErrors
 
 	; 64 bit Visual Studio 2013 runtime check
-	${if} ${RunningX64}
-		SetOutPath "$TEMP\OBS"
-		File check_for_64bit_visual_studio_2013_runtimes.exe
-		ExecWait "$TEMP\OBS\check_for_64bit_visual_studio_2013_runtimes.exe" $R0
-		Delete "$TEMP\OBS\check_for_64bit_visual_studio_2013_runtimes.exe"
-		RMDir "$TEMP\OBS"
-		IntCmp $R0 126 vs2013Missing vs2013OK2
-		vs2013OK2:
-		ClearErrors
-	${endif}
+	; ${if} ${RunningX64}
+	; 	SetOutPath "$TEMP\OBS"
+	; 	File check_for_64bit_visual_studio_2013_runtimes.exe
+	; 	ExecWait "$TEMP\OBS\check_for_64bit_visual_studio_2013_runtimes.exe" $R0
+	; 	Delete "$TEMP\OBS\check_for_64bit_visual_studio_2013_runtimes.exe"
+	; 	RMDir "$TEMP\OBS"
+	; 	IntCmp $R0 126 vs2013Missing vs2013OK2
+	; 	vs2013OK2:
+	; 	ClearErrors
+	; ${endif}
 
 	; DirectX Version Check
 	ClearErrors
@@ -234,17 +234,17 @@ Section "OBS Studio" SecCore
 	SetOutPath "$INSTDIR"
 	OBSInstallerUtils::KillProcess "obs-plugins\32bit\cef-bootstrap.exe"
 	OBSInstallerUtils::KillProcess "obs-plugins\64bit\cef-bootstrap.exe"
-	File /r "new\core\data"
-	SetOutPath "$INSTDIR\bin"
-	File /r "new\core\bin\32bit"
-	SetOutPath "$INSTDIR\obs-plugins"
-	File /r "new\core\obs-plugins\32bit"
+	File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\data"
+	; SetOutPath "$INSTDIR\bin"
+	; File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\bin\32bit"
+	; SetOutPath "$INSTDIR\obs-plugins"
+	; File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\obs-plugins\32bit"
 
 	${if} ${RunningX64}
 		SetOutPath "$INSTDIR\bin"
-		File /r "new\core\bin\64bit"
+		File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\bin\64bit"
 		SetOutPath "$INSTDIR\obs-plugins"
-		File /r "new\core\obs-plugins\64bit"
+		File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\obs-plugins\64bit"
 	${endif}
 
 	ClearErrors
