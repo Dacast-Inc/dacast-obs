@@ -645,9 +645,12 @@ static uint64_t get_packet_sys_dts(struct dacast_hls_output *output,
 	if (data->video && data->video->index == packet->stream_index) {
 		time_base = data->video->time_base;
 		start_ts = output->video_start_ts;
-	} else {
+	} else if(data->audio){
 		time_base = data->audio->time_base;
 		start_ts = output->audio_start_ts;
+	} else {
+		blog(LOG_INFO, "[ProcessDetail] get_packet_sys_dts returning 0 because data->audio is null %p", data->audio);
+		return 0;
 	}
 
     uint64_t dts = start_ts + (uint64_t)av_rescale_q(packet->dts,
