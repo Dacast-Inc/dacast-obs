@@ -27,11 +27,10 @@ const int MAX_QUEUED_SEGMENTS = 4;
 
 const char* MUXER_SETTINGS = 
 "method=PUT"
-" master_pl_name=chunklist.m3u8"
-" hls_segment_filename=chunk_%0d.ts"
-" hls_list_size=3"
-" hls_allow_cache=0"
-" http_user_agent=DacastOBS";
+"|master_pl_name=chunklist.m3u8"
+"|hls_list_size=3"
+"|hls_allow_cache=0"
+"|http_user_agent=DacastOBS";
 //add this to the end "hls_base_url=gjjgjggjgj/"
 
 struct chunk_name {
@@ -173,7 +172,7 @@ static const char *dacast_hls_ffmpeg_output_getname(void *unused)
 
 static bool is_interesting_log(int log_level, char* log_entry)
 {
-    return log_level == AV_LOG_INFO && strstr(log_entry, "Opening 'chunk_") != NULL;
+    return log_level == AV_LOG_INFO && strstr(log_entry, "chunk_") != NULL;
 }
 
 static int extract_chunk_nb(char* filename)
@@ -355,7 +354,6 @@ fail:
 	return false;
 }
 
-
 static bool send_m3u8(char* ingest_url)
 {
 	blog(LOG_INFO, "[CallStack] send_m3u8(ingest_url=%s)", ingest_url);
@@ -363,8 +361,14 @@ static bool send_m3u8(char* ingest_url)
 	char* url = bzalloc(strlen(ingest_url) + strlen("chunklist.m3u8") + 1);//+1 for the null-terminator 
 	sprintf(url, "%schunklist.m3u8", ingest_url);
 
-	bool result = send_file("chunklist.m3u8", url);
+	char* cwd = os_get_program_data_path_ptr("obs-studio");
+	char* filename = bzalloc(strlen(cwd) + strlen("/chunklist.m3u8") + 1);//+1 for the null-terminator 
+	sprintf(filename, "%s/chunklist.m3u8", cwd);
+
+	bool result = send_file(filename, url);
 	bfree(url);
+	bfree(filename);
+	bfree(cwd);
 	return result;
 }
 
@@ -375,9 +379,15 @@ static bool send_segment(char* ingest_url, struct chunk_name* to_send, char* ses
 	char* url = bzalloc(strlen(ingest_url) + strlen(sessionId) + 1/*for '/'*/ + strlen(to_send->filename) + 1);//+1 for the null-terminator 
 	sprintf(url, "%s%s/%s", ingest_url, sessionId, to_send->filename);
 
-	bool result = send_file(to_send->filename, url);
+	char* cwd = os_get_program_data_path_ptr("obs-studio");
+	char* filepath = bzalloc(strlen(cwd) + strlen("/") + strlen(to_send->filename) + 1);//+1 for the null-terminator 
+	sprintf(filepath, "%s/%s", cwd, to_send->filename);
+
+	bool result = send_file(filepath, url);
 
 	bfree(url);
+	bfree(filepath);
+	bfree(cwd);
 	return result;
 }
 
@@ -401,11 +411,11 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
             }
             blog(LOG_INFO, "[Process] Found chunk to send filename=%s, chunk_nb=%d", to_send->filename, to_send->chunk_nb);
 
-	    pthread_mutex_lock(&outputStatic->send_mutex);
-	    da_push_back(outputStatic->segments_to_send_queue, &to_send);
-	    pthread_mutex_unlock(&outputStatic->send_mutex);
+			pthread_mutex_lock(&outputStatic->send_mutex);
+			da_push_back(outputStatic->segments_to_send_queue, &to_send);
+			pthread_mutex_unlock(&outputStatic->send_mutex);
 
-	    os_sem_post(outputStatic->send_sem);
+			os_sem_post(outputStatic->send_sem);
         }
     }
 	UNUSED_PARAMETER(param);
@@ -786,7 +796,7 @@ static void* send_thread(void* data) {
 		}
 
 		if (cleanup_before >= 0) {
-			char* cwd = os_get_abs_path_ptr(".");
+			char* cwd = os_get_program_data_path_ptr("obs-studio");
 			bool cleanup_result = cleanup_segments(cwd, cleanup_before - 3);
 			bfree(cwd);
 			if (!cleanup_result) {
@@ -817,6 +827,7 @@ static bool try_connect(struct dacast_hls_output *output)
 
 // " hls_time=2"
 // " hls_init_time=2"
+	char* data_path = os_get_program_data_path_ptr("obs-studio");
 
 	char* session_id = rand_string(10);
 	if (akamaiSessionId) {
@@ -825,18 +836,30 @@ static bool try_connect(struct dacast_hls_output *output)
 	}
 	akamaiSessionId = bstrdup(session_id);
 
+
 	int keyframeIntervalSec = (int)obs_data_get_int(settings, "hls_keyframe_interval");
 	muxer_settings = bzalloc(
 		strlen(MUXER_SETTINGS)
-		+ strlen(" hls_time=")
+		+ strlen("|hls_segment_filename=")
+		+ strlen(data_path)
+		+ strlen("/chunk_%0d.ts")//"|hls_segment_filename=/Library/Application Support/obs-studio/chunk_%0d.ts"
+		+ strlen("|hls_time=")
 		+ (sizeof(char) * 3) //keyframe length
-		+ strlen(" hls_init_time=")
+		+ strlen("|hls_init_time=")
 		+ (sizeof(char) * 3) //keyframe length
-		+ strlen(" hls_base_url=")
+		+ strlen("|hls_base_url=")
 		+ (sizeof(char) * 10) // akamaiSessionId
 		+ strlen("/")
 		+ 1);//+1 for the null-terminator 
-	sprintf(muxer_settings, "%s hls_time=%d hls_init_time=%d hls_base_url=%s/", MUXER_SETTINGS, keyframeIntervalSec, keyframeIntervalSec, session_id);
+	sprintf(
+		//%% escapes the %
+		muxer_settings, "%s|hls_segment_filename=%s/chunk_%%0d.ts|hls_time=%d|hls_init_time=%d|hls_base_url=%s/", 
+		MUXER_SETTINGS, 
+		data_path, 
+		keyframeIntervalSec, 
+		keyframeIntervalSec, 
+		session_id
+	);
     bfree(session_id);
 
     /*
@@ -863,8 +886,11 @@ format: 23
 //"http://post.dctranslive01-i.akamaihd.net/266820/live-104301-474912_1_1/chunklist.m3u8";
     char* hls_ingest_url = bstrdup(obs_data_get_string(settings, "hls_ingest_url"));
 
+	blog(LOG_INFO, "[ProcessDetails] Setting muxer_settings: %s", muxer_settings);
+
     output->url = hls_ingest_url;
-    config.url = "chunklist.m3u8";//concat(hls_ingest_url, "chunklist.m3u8");
+    config.url = concat(data_path, "/chunklist.m3u8");
+	bfree(data_path);
 	config.format_name = "hls";
 	config.format_mime_type = NULL;
 	config.muxer_settings = bstrdup(muxer_settings);
@@ -985,7 +1011,7 @@ static void *start_thread(void *data)
     blog(LOG_INFO, "[CallStack] start_thread(data=%p)", data);
 	struct dacast_hls_output *output = data;
 
-    char* cwd = os_get_abs_path_ptr(".");
+	char* cwd = os_get_program_data_path_ptr("obs-studio");
     blog(LOG_INFO, "[ProcessDetail] Cwd: %s", cwd);
     bool cleanup_result = cleanup_segments(cwd, INT_MAX);
     bfree(cwd);
@@ -1352,7 +1378,7 @@ static inline bool open_output_file(struct ffmpeg_data *data)
 	AVDictionary *dict = NULL;
     blog(LOG_INFO, "[ProcessDetail] muxer_settings=%s", data->config.muxer_settings);
 	if ((ret = av_dict_parse_string(&dict, data->config.muxer_settings,
-				"=", " ", 0))) {
+				"=", "|", 0))) {
 		blog(LOG_WARNING, "Failed to parse muxer settings: %s\n%s",
 				av_err2str(ret), data->config.muxer_settings);
 
