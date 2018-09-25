@@ -460,8 +460,10 @@ static void *dacast_hls_ffmpeg_output_create(obs_data_t *settings, obs_output_t 
 		goto fail;
 	if (os_event_init(&data->stop_event, OS_EVENT_TYPE_AUTO) != 0)
 		goto fail;
+    blog(LOG_INFO, "[ProcessDetail] init hls_error_event");
 	if(os_event_init(&hls_error_event, OS_EVENT_TYPE_AUTO) != 0)
 		goto fail;
+    blog(LOG_INFO, "[ProcessDetail] sucessfully init hls_error_event");
 	if (os_sem_init(&data->write_sem, 0) != 0)
 		goto fail;
 	if (os_sem_init(&data->send_sem, 0) != 0)
@@ -477,6 +479,7 @@ fail:
 	pthread_mutex_destroy(&data->write_mutex);
 	pthread_mutex_destroy(&data->send_mutex);
 	os_event_destroy(data->stop_event);
+    blog(LOG_INFO, "[ProcessDetail] destroy hls_error_event, dacast_hls_ffmpeg_output_create");
     os_event_destroy(hls_error_event);
     hls_error_event = NULL;
 blog(LOG_INFO, "about to bfree(data)");
@@ -607,6 +610,7 @@ blog(LOG_INFO, "about to bfree(akamaiSessionId)");
 		os_sem_destroy(output->write_sem);
 		os_sem_destroy(output->send_sem);
 		os_event_destroy(output->stop_event);
+        blog(LOG_INFO, "[ProcessDetail] destroy hls_error_event, dacast_hls_ffmpeg_output_destroy");
         os_event_destroy(hls_error_event);
 	hls_error_event = NULL;
 blog(LOG_INFO, "about to bfree(output->url)");
@@ -718,6 +722,7 @@ static void *write_thread(void *data)
 		if (os_event_try(output->stop_event) == 0)
 			break;
 	    // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>write thread triggered");
+
 
         bool has_hls_error = os_event_try(hls_error_event) == 0;
         int ret = 0;
@@ -1138,6 +1143,14 @@ static bool dacast_hls_ffmpeg_output_start(void *data)
 	if (output->connecting)
 		return false;
 
+    if(!hls_error_event && os_event_init(&hls_error_event, OS_EVENT_TYPE_AUTO) != 0){
+        blog(LOG_INFO, "[ProcessDetail] error init hls_error_event, destroy hls_error_event, dacast_hls_ffmpeg_output_start");
+        os_event_destroy(hls_error_event);
+        hls_error_event = NULL;
+        return false;
+    }
+		
+
 	os_atomic_set_bool(&output->stopping, false);
 	output->audio_start_ts = 0;
 	output->video_start_ts = 0;
@@ -1148,6 +1161,8 @@ static bool dacast_hls_ffmpeg_output_start(void *data)
 	blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_start done");
 	return output->connecting;
 }
+
+
 
 static void dacast_hls_ffmpeg_output_stop(void *data, uint64_t ts)
 {
