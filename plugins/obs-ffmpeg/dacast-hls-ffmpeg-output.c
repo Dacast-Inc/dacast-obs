@@ -138,6 +138,7 @@ static char* get_os_program_data_path_clean() {
 	char* data_path = os_get_program_data_path_ptr("obs-studio");
 
 	dstr_insert(&str, 0, data_path);
+blog(LOG_INFO, "about to bfree(data_path)");
 	bfree(data_path);
 	dstr_replace(&str, "\\", "/");
 	data_path = bstrdup(str.array);
@@ -215,6 +216,7 @@ static int extract_chunk_nb(char* filename)
     subbuff[(end_index - start_index)] = '\0';
 
     int parsed = atoi(subbuff);
+blog(LOG_INFO, "about to bfree(subbuff)");
     bfree(subbuff);
     return parsed;
 }
@@ -240,7 +242,9 @@ static bool cleanup_segments(char* dirpath, int cleanup_below)
 
                 int unlink_result = os_unlink(filepath);
                 // blog(LOG_INFO, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>unlinked %s, %d", filepath, unlink_result);
+blog(LOG_INFO, "about to bfree(filepath_part)");
                 bfree(filepath_part);
+blog(LOG_INFO, "about to bfree(filepath)");
                 bfree(filepath);
                 if(unlink_result != 0){
                     blog(LOG_INFO, "[Process] Couldnt unlink file (%d) %s, result: %d", unlink_result, filepath, unlink_result);
@@ -379,8 +383,11 @@ static bool send_m3u8(char* ingest_url)
 	sprintf(filename, "%s/chunklist.m3u8", cwd);
 
 	bool result = send_file(filename, url);
+blog(LOG_INFO, "about to bfree(url)");
 	bfree(url);
+blog(LOG_INFO, "about to bfree(filename)");
 	bfree(filename);
+blog(LOG_INFO, "about to bfree(cwd)");
 	bfree(cwd);
 	return result;
 }
@@ -398,8 +405,11 @@ static bool send_segment(char* ingest_url, struct chunk_name* to_send, char* ses
 
 	bool result = send_file(filepath, url);
 
+blog(LOG_INFO, "about to bfree(url)");
 	bfree(url);
+blog(LOG_INFO, "about to bfree(filepath)");
 	bfree(filepath);
+blog(LOG_INFO, "about to bfree(cwd)");
 	bfree(cwd);
 	return result;
 }
@@ -414,6 +424,7 @@ static void ffmpeg_log_callback(void *param, int level, const char *format,
     char out[4096];
 	char* format_cp = bstrdup(format);
     vsnprintf(out, sizeof(out), format_cp, args);
+blog(LOG_INFO, "about to bfree(format_cp)");
 	bfree(format_cp);
         blog(LOG_INFO, "log %d %s", level, out);
 
@@ -468,6 +479,7 @@ fail:
 	os_event_destroy(data->stop_event);
     os_event_destroy(hls_error_event);
     hls_error_event = NULL;
+blog(LOG_INFO, "about to bfree(data)");
 	bfree(data);
 	return NULL;
 }
@@ -511,7 +523,7 @@ static void ffmpeg_data_free(struct ffmpeg_data *data)
 		close_audio(data);
 
 	if (data->config.muxer_settings)
-		bfree(data->config.muxer_settings);
+		blog;
 
 	if (data->output) {
 		if ((data->output->oformat->flags & AVFMT_NOFILE) == 0)
@@ -550,7 +562,9 @@ static void ffmpeg_deactivate(struct dacast_hls_output *output)
 	pthread_mutex_lock(&output->send_mutex);
 	for (size_t i = 0; i < output->segments_to_send_queue.num; i++) {
 		struct chunk_name** chunk = output->segments_to_send_queue.array + i;
+blog(LOG_INFO, "about to bfree((*chunk)->filename)");
 		bfree((*chunk)->filename);
+blog(LOG_INFO, "about to bfree(*chunk)");
 		bfree(*chunk);
 	}
 	da_free(output->segments_to_send_queue);
@@ -577,6 +591,7 @@ static void dacast_hls_ffmpeg_output_destroy(void *data)
 	struct dacast_hls_output *output = data;
 
     if(akamaiSessionId){
+blog(LOG_INFO, "about to bfree(akamaiSessionId)");
         bfree(akamaiSessionId);
         akamaiSessionId = NULL;
     }
@@ -594,7 +609,9 @@ static void dacast_hls_ffmpeg_output_destroy(void *data)
 		os_event_destroy(output->stop_event);
         os_event_destroy(hls_error_event);
 	hls_error_event = NULL;
+blog(LOG_INFO, "about to bfree(output->url)");
         bfree(output->url);
+blog(LOG_INFO, "about to bfree(data)");
 		bfree(data);
         outputStatic = NULL;
 	}
@@ -731,7 +748,9 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 		struct chunk_name** to_delete_ptr = send_queue.array;
 		struct chunk_name* to_delete = *to_delete_ptr;
 		da_erase(send_queue, 0);
+blog(LOG_INFO, "about to bfree(to_delete->filename)");
 		bfree(to_delete->filename);
+blog(LOG_INFO, "about to bfree(to_delete)");
 		bfree(to_delete);
 		dropped_segments++;
 	}
@@ -761,7 +780,9 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 			highest_segment = to_send->chunk_nb;
 		}
 		blog(LOG_INFO, "[Process] Sent segment number=%d, name=%s, queued=%d, url=%s", to_send->chunk_nb, to_send->filename, send_queue.num, output->url);
+blog(LOG_INFO, "about to bfree(to_send->filename)");
 		bfree(to_send->filename);
+blog(LOG_INFO, "about to bfree(to_send)");
 		bfree(to_send);
 	}
 	*cleanup_before = highest_segment;
@@ -771,6 +792,7 @@ static bool send_queued_segments(struct dacast_hls_output *output, chunk_name_li
 static void* send_thread(void* data) {
 	blog(LOG_INFO, "[CallStack] send_thread(data=%p)", data);
 	struct dacast_hls_output *output = data;
+	blog(LOG_INFO, "[ProcessDetails] casted data to output");
 	while (os_sem_wait(output->send_sem) == 0) {
 		if (os_event_try(output->stop_event) == 0) 
 			break;
@@ -811,6 +833,7 @@ static void* send_thread(void* data) {
 		if (cleanup_before >= 0) {
 			char* cwd = get_os_program_data_path_clean();
 			bool cleanup_result = cleanup_segments(cwd, cleanup_before - 3);
+blog(LOG_INFO, "about to bfree(cwd)");
 			bfree(cwd);
 			if (!cleanup_result) {
 				blog(LOG_ERROR, "[ProcessDetail] Error cleaning up segment below %d", cleanup_before - 3);
@@ -890,10 +913,12 @@ static bool try_connect(struct dacast_hls_output *output)
 	char* data_path = get_os_program_data_path_clean();
 
 	//char* data_path = str_replace(data_path_dirty, "\\", "/");
+blog(LOG_INFO, "about to bfree(data_path_dirty)");
 	//bfree(data_path_dirty);
 
 	char* session_id = rand_string(10);
 	if (akamaiSessionId) {
+blog(LOG_INFO, "about to bfree(akamaiSessionId)");
 		bfree(akamaiSessionId);
 		akamaiSessionId = NULL;
 	}
@@ -923,6 +948,7 @@ static bool try_connect(struct dacast_hls_output *output)
 		keyframeIntervalSec, 
 		session_id
 	);
+blog(LOG_INFO, "about to bfree(session_id)");
     bfree(session_id);
 
     /*
@@ -953,10 +979,12 @@ format: 23
 
     output->url = hls_ingest_url;
     config.url = concat(data_path, "/chunklist.m3u8");
+blog(LOG_INFO, "about to bfree(data_path)");
     bfree(data_path);
 	config.format_name = "hls";
 	config.format_mime_type = NULL;
 	config.muxer_settings = bstrdup(muxer_settings);
+blog(LOG_INFO, "about to bfree(muxer_settings)");
 	bfree(muxer_settings);
 	config.video_bitrate = (int)obs_data_get_int(settings, "hls_video_bitrate");
 	config.audio_bitrate = (int)obs_data_get_int(settings, "hls_audio_bitrate");
@@ -1048,6 +1076,7 @@ format: 23
 		return false;
 
 	ret = pthread_create(&output->write_thread, NULL, write_thread, output);
+	blog(LOG_INFO, "[ProcessDetails] created write_thread done");
 	if (ret != 0) {
 		blog(LOG_WARNING, "ffmpeg_output_start: failed to create write "
 		                  "thread.");
@@ -1055,17 +1084,20 @@ format: 23
 		return false;
 	}
 	ret = pthread_create(&output->send_thread, NULL, send_thread, output);
+	blog(LOG_INFO, "[ProcessDetails] created send_thread done");
 	if (ret != 0) {
 		blog(LOG_WARNING, "ffmpeg_output_start: failed to create send thread.");
 		ffmpeg_output_full_stop(output);
 		return false;
 	}
 
+
 	obs_output_set_video_conversion(output->output, NULL);
 	obs_output_set_audio_conversion(output->output, &aci);
 	obs_output_begin_data_capture(output->output, 0);
 	output->write_thread_active = true;
 	output->send_thread_active = true;
+	blog(LOG_INFO, "[ProcessDetails] try_connect done");
 	return true;
 }
 
@@ -1077,6 +1109,7 @@ static void *start_thread(void *data)
 	char* cwd = get_os_program_data_path_clean();
     blog(LOG_INFO, "[ProcessDetail] Cwd: %s", cwd);
     bool cleanup_result = cleanup_segments(cwd, INT_MAX);
+blog(LOG_INFO, "about to bfree(cwd)");
     bfree(cwd);
     if(!cleanup_result){
         obs_output_signal_stop(output->output, OBS_OUTPUT_CONNECT_FAILED);
@@ -1088,6 +1121,7 @@ static void *start_thread(void *data)
 		obs_output_signal_stop(output->output, OBS_OUTPUT_CONNECT_FAILED);
 
 	output->connecting = false;
+    blog(LOG_INFO, "[ProcessDetail] start_thread done");
 	return NULL;
 }
 
@@ -1108,6 +1142,7 @@ static bool dacast_hls_ffmpeg_output_start(void *data)
 
 	ret = pthread_create(&output->start_thread, NULL, start_thread, output);
     output->connecting = (ret == 0);
+	blog(LOG_INFO, "[CallStack] dacast_hls_ffmpeg_output_start done");
 	return output->connecting;
 }
 

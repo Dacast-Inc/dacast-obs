@@ -660,8 +660,15 @@ bool SimpleOutput::StartStreaming(obs_service_t *service)
         type = "dacast_hls_ffmpeg_output";
     }
 
+	 if (outputType == type) {
+	    //force recreation of output even if the outputType didnt change,
+	    //otherwise the ffmpeg doesnt get properly destroyed and weird shit happens
+	    outputType = "";
+    }
+
 	/* XXX: this is messy and disgusting and should be refactored */
 	if (outputType != type) {
+		blog(LOG_INFO, "[PreProcess] Recreating output simple %s", type);
 		streamDelayStarting.Disconnect();
 		streamStopping.Disconnect();
 		startStreaming.Disconnect();
@@ -1489,7 +1496,7 @@ bool AdvancedOutput::StartStreaming(obs_service_t *service)
 
 	/* XXX: this is messy and disgusting and should be refactored */
 	if (outputType != type) {
-        blog(LOG_INFO, "|||||||||||||||||||||||||outputtype changed: %s", type);
+		blog(LOG_INFO, "[PreProcess] Recreating output adv %s", type);
 		streamDelayStarting.Disconnect();
 		streamStopping.Disconnect();
 		startStreaming.Disconnect();
