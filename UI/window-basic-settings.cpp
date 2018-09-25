@@ -3092,10 +3092,11 @@ void OBSBasicSettings::SaveOutputSettings()
             StreamTypeFromIdx(ui->advOutStreamType->currentIndex()));
     config_set_int(main->Config(), "AdvOut", "HlsAudioBitrate", 
             AudioBitrateFromIdx(ui->advOutHlsAudioBitrate->currentIndex()));
-	SaveSpinBox(ui->advOutHlsVideoBitrate, "AdvOut", "HlsVideoBitrate");
-    SaveSpinBox(ui->advOutHlsKeyframeInterval, "AdvOut", "HlsKeyframeInterval");
-    SaveSpinBox(ui->advOutHlsScaleWidth, "AdvOut", "HlsScaleWidth");
-    SaveSpinBox(ui->advOutHlsScaleHeight, "AdvOut", "HlsScaleHeight");
+
+    config_set_int(main->Config(), "AdvOut", "HlsVideoBitrate", ui->advOutHlsVideoBitrate->value());
+    config_set_int(main->Config(), "AdvOut", "HlsKeyframeInterval", ui->advOutHlsKeyframeInterval->value());
+    config_set_int(main->Config(), "AdvOut", "HlsScaleWidth", ui->advOutHlsScaleWidth->value());
+    config_set_int(main->Config(), "AdvOut", "HlsScaleHeight", ui->advOutHlsScaleHeight->value());
     SaveEdit(ui->advOutHlsIngestUrl, "AdvOut", "HlsIngestUrl");
 
 	curAdvRecordEncoder = GetComboData(ui->advOutRecEncoder);
