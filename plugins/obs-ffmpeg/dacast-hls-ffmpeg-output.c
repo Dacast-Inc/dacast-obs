@@ -133,6 +133,18 @@ static struct dacast_hls_output* outputStatic;
 static bool ffmpeg_data_init(struct ffmpeg_data *data, struct ffmpeg_cfg *config);
 
 
+static char* get_os_program_data_path_clean() {
+	struct dstr str = { 0 };
+	char* data_path = os_get_program_data_path_ptr("obs-studio");
+
+	dstr_insert(&str, 0, data_path);
+	bfree(data_path);
+	dstr_replace(&str, "\\", "/");
+	data_path = bstrdup(str.array);
+	dstr_free(&str);
+	return data_path;
+}
+
 char* concat(const char *s1, const char *s2) 
 {
     char *result = bzalloc(strlen(s1) + strlen(s2) + 1);//+1 for the null-terminator 
@@ -323,11 +335,12 @@ static bool send_file(char* filename, char* url) {
 			blog(LOG_INFO, "[ProcessDetail] curl_easy_perform() failed (%d): %s\n",
 				res, curl_easy_strerror(res));
 			if (res != CURLE_WRITE_ERROR) {
+				blog(LOG_INFO, "[ProcessDetail] CURLE_WRITE_ERROR for %s", filename);
 				goto fail;
 			}
 		}
 		else {
-			blog(LOG_INFO, "[ProcessDetail] curl_easy_perform() was successful");
+			blog(LOG_INFO, "[ProcessDetail] curl_easy_perform() was successful for %s", filename);
 			/* now extract transfer info */
 			// curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed_upload);
 			// curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME_T, &total_time);
@@ -361,7 +374,7 @@ static bool send_m3u8(char* ingest_url)
 	char* url = bzalloc(strlen(ingest_url) + strlen("chunklist.m3u8") + 1);//+1 for the null-terminator 
 	sprintf(url, "%schunklist.m3u8", ingest_url);
 
-	char* cwd = os_get_program_data_path_ptr("obs-studio");
+	char* cwd = get_os_program_data_path_clean();
 	char* filename = bzalloc(strlen(cwd) + strlen("/chunklist.m3u8") + 1);//+1 for the null-terminator 
 	sprintf(filename, "%s/chunklist.m3u8", cwd);
 
@@ -379,7 +392,7 @@ static bool send_segment(char* ingest_url, struct chunk_name* to_send, char* ses
 	char* url = bzalloc(strlen(ingest_url) + strlen(sessionId) + 1/*for '/'*/ + strlen(to_send->filename) + 1);//+1 for the null-terminator 
 	sprintf(url, "%s%s/%s", ingest_url, sessionId, to_send->filename);
 
-	char* cwd = os_get_program_data_path_ptr("obs-studio");
+	char* cwd = get_os_program_data_path_clean();
 	char* filepath = bzalloc(strlen(cwd) + strlen("/") + strlen(to_send->filename) + 1);//+1 for the null-terminator 
 	sprintf(filepath, "%s/%s", cwd, to_send->filename);
 
@@ -796,7 +809,7 @@ static void* send_thread(void* data) {
 		}
 
 		if (cleanup_before >= 0) {
-			char* cwd = os_get_program_data_path_ptr("obs-studio");
+			char* cwd = get_os_program_data_path_clean();
 			bool cleanup_result = cleanup_segments(cwd, cleanup_before - 3);
 			bfree(cwd);
 			if (!cleanup_result) {
@@ -808,6 +821,53 @@ static void* send_thread(void* data) {
 	}
 	output->active = false;
 	return NULL;
+}
+
+// You must free the result if result is non-NULL.
+char *str_replace(char *orig, char *rep, char *with) {
+	char *result; // the return string
+	char *ins;    // the next insert point
+	char *tmp;    // varies
+	int len_rep;  // length of rep (the string to remove)
+	int len_with; // length of with (the string to replace rep with)
+	int len_front; // distance between rep and end of last rep
+	int count;    // number of replacements
+
+	// sanity checks and initialization
+	if (!orig || !rep)
+		return NULL;
+	len_rep = strlen(rep);
+	if (len_rep == 0)
+		return NULL; // empty rep causes infinite loop during count
+	if (!with)
+		with = "";
+	len_with = strlen(with);
+
+	// count the number of replacements needed
+	ins = orig;
+	for (count = 0; tmp = strstr(ins, rep); ++count) {
+		ins = tmp + len_rep;
+	}
+
+	tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+	if (!result)
+		return NULL;
+
+	// first time through the loop, all the variable are set correctly
+	// from here on,
+	//    tmp points to the end of the result string
+	//    ins points to the next occurrence of rep in orig
+	//    orig points to the remainder of orig after "end of rep"
+	while (count--) {
+		ins = strstr(orig, rep);
+		len_front = ins - orig;
+		tmp = strncpy(tmp, orig, len_front) + len_front;
+		tmp = strcpy(tmp, with) + len_with;
+		orig += len_front + len_rep; // move to next "end of rep"
+	}
+	strcpy(tmp, orig);
+	return result;
 }
 
 static bool try_connect(struct dacast_hls_output *output)
@@ -827,7 +887,10 @@ static bool try_connect(struct dacast_hls_output *output)
 
 // " hls_time=2"
 // " hls_init_time=2"
-	char* data_path = os_get_program_data_path_ptr("obs-studio");
+	char* data_path = get_os_program_data_path_clean();
+
+	//char* data_path = str_replace(data_path_dirty, "\\", "/");
+	//bfree(data_path_dirty);
 
 	char* session_id = rand_string(10);
 	if (akamaiSessionId) {
@@ -890,7 +953,7 @@ format: 23
 
     output->url = hls_ingest_url;
     config.url = concat(data_path, "/chunklist.m3u8");
-	bfree(data_path);
+    bfree(data_path);
 	config.format_name = "hls";
 	config.format_mime_type = NULL;
 	config.muxer_settings = bstrdup(muxer_settings);
@@ -1011,7 +1074,7 @@ static void *start_thread(void *data)
     blog(LOG_INFO, "[CallStack] start_thread(data=%p)", data);
 	struct dacast_hls_output *output = data;
 
-	char* cwd = os_get_program_data_path_ptr("obs-studio");
+	char* cwd = get_os_program_data_path_clean();
     blog(LOG_INFO, "[ProcessDetail] Cwd: %s", cwd);
     bool cleanup_result = cleanup_segments(cwd, INT_MAX);
     bfree(cwd);

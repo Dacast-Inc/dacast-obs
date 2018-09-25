@@ -37,6 +37,9 @@ RequestExecutionLevel admin
 ; Modern interface settings
 !include "MUI.nsh"
 
+!define CSIDL_COMMONAPPDATA '0x23' ;Common Application Data path
+
+
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Launch OBS Studio ${SHORTVERSION}"
@@ -222,6 +225,9 @@ FunctionEnd
 Var outputErrors
 
 Section "OBS Studio" SecCore
+
+	System::Call 'shell32::SHGetSpecialFolderPath(i $HWNDPARENT, t .r1, i ${CSIDL_COMMONAPPDATA}, i0)i.r0'
+	CreateDirectory $1\obs-studio
 
 	; Set Section properties
 	SectionIn RO
