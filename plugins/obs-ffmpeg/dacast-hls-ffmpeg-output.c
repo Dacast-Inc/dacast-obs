@@ -1394,6 +1394,11 @@ static bool create_video_stream(struct ffmpeg_data *data)
 
 	context                 = data->video->codec;
 	context->bit_rate       = data->config.video_bitrate * 1000;
+    context->bit_rate_tolerance = 0;
+    av_opt_set(context->priv_data, "bitrate", data->config.video_bitrate * 1000, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set(context->priv_data, "vbv-maxrate", data->config.video_bitrate * 1000, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set(context->priv_data, "vbv-bufsize", (data->config.video_bitrate * 1000)/2, AV_OPT_SEARCH_CHILDREN);
+    av_opt_set(context->priv_data, "pass", 2, AV_OPT_SEARCH_CHILDREN);
 	context->width          = data->config.scale_width;
 	context->height         = data->config.scale_height;
 	context->time_base      = (AVRational){ ovi.fps_den, ovi.fps_num };
