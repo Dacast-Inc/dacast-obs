@@ -272,7 +272,6 @@ extern struct gl_windowinfo *gl_windowinfo_create(const struct gs_init_data *inf
 
 extern void gl_windowinfo_destroy(struct gl_windowinfo *info)
 {
-	UNUSED_PARAMETER(info);
 	bfree(info);
 }
 
@@ -518,6 +517,15 @@ extern void gl_getclientsize(const struct gs_swap_chain *swap,
 	*height = geometry->height;
 
 	free(geometry);
+}
+
+extern void gl_clear_context(gs_device_t *device)
+{
+	Display *display = device->plat->display;
+
+	if (!glXMakeContextCurrent(display, None, None, NULL)) {
+		blog(LOG_ERROR, "Failed to reset current context.");
+	}
 }
 
 extern void gl_update(gs_device_t *device)

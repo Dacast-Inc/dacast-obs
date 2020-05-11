@@ -478,6 +478,7 @@ struct gs_device {
 	struct gl_platform   *plat;
 	enum copy_type       copy_type;
 
+	GLuint empty_vao;
 	gs_texture_t         *cur_render_target;
 	gs_zstencil_t        *cur_zstencil_buffer;
 	int                  cur_render_side;
@@ -509,6 +510,7 @@ extern struct fbo_info *get_fbo(struct gs_device *device,
 		uint32_t width, uint32_t height, enum gs_color_format format);
 
 extern void                  gl_update(gs_device_t *device);
+extern void gl_clear_context(gs_device_t *device);
 
 extern struct gl_platform   *gl_platform_create(gs_device_t *device,
 		uint32_t adapter);
