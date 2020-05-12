@@ -11,6 +11,10 @@ if(MSVC)
 		w32-pthreads)
 endif()
 
+if(APPLE)
+	set(obs-scripting_PLATFORM_DEPS
+		objc)
+endif()
 find_package(Luajit QUIET)
 find_package(PythonDeps QUIET)
 find_package(SwigDeps QUIET 2)
