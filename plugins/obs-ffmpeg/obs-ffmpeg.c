@@ -124,7 +124,9 @@ static const char *nvenc_check_name = "nvenc_check";
 
 static bool nvenc_supported(void)
 {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
+#endif
 
 	profile_start(nvenc_check_name);
 
