@@ -135,7 +135,7 @@ static bool ffmpeg_data_init(struct ffmpeg_data *data, struct ffmpeg_cfg *config
 
 static char* get_os_program_data_path_clean() {
 	struct dstr str = { 0 };
-	char* data_path = os_get_program_data_path_ptr("obs-studio");
+	char* data_path = os_get_program_data_path_ptr("dacast-obs-studio");
 
 	dstr_insert(&str, 0, data_path);
 blog(LOG_INFO, "about to bfree(data_path)");
