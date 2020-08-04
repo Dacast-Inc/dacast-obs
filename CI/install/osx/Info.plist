@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleIconFile</key>
 	<string>obs.icns</string>
 	<key>CFBundleName</key>
-	<string>OBS</string>
+	<string>DACAST-OBS</string>
 	<key>CFBundleGetInfoString</key>
 	<string>OBS - Free and Open Source Streaming/Recording Software</string>
 	<key>CFBundleExecutable</key>
 	<string>obs</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.obsproject.obs-studio</string>
+	<string>com.obsproject.dacast-obs-studio</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>LSMinimumSystemVersion</key>
@@ -21,8 +21,8 @@
 	<key>LSAppNapIsDisabled</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
- 	<string>OBS needs to access the camera to enable camera sources to work.</string>
- 	<key>NSMicrophoneUsageDescription</key>
- 	<string>OBS needs to access the microphone to enable audio input.</string>
+	<string>DACAST-OBS needs to access the camera to enable camera sources to work.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DACAST-OBS needs to access the microphone to enable audio input.</string>
 </dict>
 </plist>
