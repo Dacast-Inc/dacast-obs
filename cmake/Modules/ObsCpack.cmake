@@ -7,7 +7,7 @@ endif()
 
 set(CPACK_PACKAGE_NAME "OBS")
 set(CPACK_PACKAGE_VENDOR "obsproject.com")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OBS - Live video and audio streaming and recording software")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "DACAST-OBS - Live video and audio streaming and recording software")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/UI/data/license/gplv2.txt")
 
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
@@ -32,11 +32,11 @@ MESSAGE(STATUS "OBS_VERSION: ${OBS_VERSION}")
 
 if(INSTALLER_RUN)
 	set(CPACK_PACKAGE_EXECUTABLES
-		"obs32" "OBS Studio (32bit)"
-		"obs64" "OBS Studio (64bit)")
+		"dacast-obs32" "Dacast OBS Studio (32bit)"
+		"dacast-obs64" "Dacast OBS Studio (64bit)")
 	set(CPACK_CREATE_DESKTOP_LINKS
-		"obs32"
-		"obs64")
+		"dacast-obs32"
+		"dacast-obs64")
 else()
 	if(WIN32)
 		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -48,11 +48,11 @@ else()
 		set(_output_suffix "")
 	endif()
 
-	set(CPACK_PACKAGE_EXECUTABLES "obs${_output_suffix}" "OBS Studio")
-	set(CPACK_CREATE_DESKTOP_LINKS "obs${_output_suffix}")
+	set(CPACK_PACKAGE_EXECUTABLES "dacast-obs${_output_suffix}" "dacast OBS Studio")
+	set(CPACK_CREATE_DESKTOP_LINKS "dacast-obs${_output_suffix}")
 endif()
 
-set(CPACK_BUNDLE_NAME "OBS")
+set(CPACK_BUNDLE_NAME "dacast-OBS")
 set(CPACK_BUNDLE_PLIST "${CMAKE_SOURCE_DIR}/cmake/osxbundle/Info.plist")
 set(CPACK_BUNDLE_ICON "${CMAKE_SOURCE_DIR}/cmake/osxbundle/obs.icns")
 set(CPACK_BUNDLE_STARTUP_COMMAND "${CMAKE_SOURCE_DIR}/cmake/osxbundle/obslaunch.sh")
@@ -66,7 +66,7 @@ if(INSTALLER_RUN)
 	set(CPACK_PACKAGE_FILE_NAME "obs-studio-${OBS_VERSION}")
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	if(WIN32)
-		set(CPACK_PACKAGE_NAME "OBS Studio (64bit)")
+		set(CPACK_PACKAGE_NAME "Dacast OBS Studio (64bit)")
 	endif()
 	set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "OBSStudio64")
 	set(CPACK_WIX_UPGRADE_GUID "44c72510-2e8e-489c-8bc0-2011a9631b0b")
@@ -74,12 +74,12 @@ elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(CPACK_PACKAGE_FILE_NAME "obs-studio-x64-${OBS_VERSION}")
 else()
 	if(WIN32)
-		set(CPACK_PACKAGE_NAME "OBS Studio (32bit)")
+		set(CPACK_PACKAGE_NAME "Dacast OBS Studio (32bit)")
 	endif()
 	set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "OBSStudio32")
 	set(CPACK_WIX_UPGRADE_GUID "a26acea4-6190-4470-9fb9-f6d32f3ba030")
 	set(CPACK_WIX_PRODUCT_GUID "8e24982d-b0ab-4f66-9c90-f726f3b64682")
-	set(CPACK_PACKAGE_FILE_NAME "obs-studio-x86-${OBS_VERSION}")
+	set(CPACK_PACKAGE_FILE_NAME "dacast-obs-studio-x86-${OBS_VERSION}")
 endif()
 
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
