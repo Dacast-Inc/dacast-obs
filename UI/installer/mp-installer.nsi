@@ -216,9 +216,9 @@ FunctionEnd
 
 Function LaunchOBS
 	${if} ${RunningX64}
-		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\OBS Studio (64bit).lnk"'
+		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (64bit).lnk"'
 	${else}
-		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\OBS Studio (32bit).lnk"'
+		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (32bit).lnk"'
 	${endif}
 FunctionEnd
 
@@ -261,28 +261,28 @@ Section "DACAST OBS Studio" SecCore
 	WriteUninstaller "$INSTDIR\uninstall.exe"
 
 	; Delete Old "Multiplatform" Shortcuts
-	Delete "$DESKTOP\OBS Multiplatform.lnk"
-	Delete "$SMPROGRAMS\OBS Multiplatform\OBS Multiplatform (32bit).lnk"
-	Delete "$SMPROGRAMS\OBS Multiplatform\Uninstall.lnk"
+	Delete "$DESKTOP\DACAST-OBS Multiplatform.lnk"
+	Delete "$SMPROGRAMS\DACAST-OBS Multiplatform\OBS Multiplatform (32bit).lnk"
+	Delete "$SMPROGRAMS\DACAST-OBS Multiplatform\Uninstall.lnk"
 	${if} ${RunningX64}
-		Delete "$SMPROGRAMS\OBS Multiplatform\OBS Multiplatform (64bit).lnk"
+		Delete "$SMPROGRAMS\DACAST-OBS Multiplatform\OBS Multiplatform (64bit).lnk"
 	${endif}
 
 	${if} ${RunningX64}
 		SetOutPath "$INSTDIR\bin\64bit"
-		CreateShortCut "$DESKTOP\OBS Studio.lnk" "$INSTDIR\bin\64bit\dacast-obs64.exe"
+		CreateShortCut "$DESKTOP\DACAST-OBS Studio.lnk" "$INSTDIR\bin\64bit\dacast-obs64.exe"
 	${else}
 		SetOutPath "$INSTDIR\bin\32bit"
-		CreateShortCut "$DESKTOP\OBS Studio.lnk" "$INSTDIR\bin\32bit\dacast-obs32.exe"
+		CreateShortCut "$DESKTOP\DACAST-OBS Studio.lnk" "$INSTDIR\bin\32bit\dacast-obs32.exe"
 	${endif}
 	SetOutPath "$INSTDIR\bin\32bit"
 	CreateDirectory "$SMPROGRAMS\OBS Studio"
-	CreateShortCut "$SMPROGRAMS\OBS Studio\OBS Studio (32bit).lnk" "$INSTDIR\bin\32bit\dacast-obs32.exe"
+	CreateShortCut "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (32bit).lnk" "$INSTDIR\bin\32bit\dacast-obs32.exe"
 	CreateShortCut "$SMPROGRAMS\OBS Studio\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
 	${if} ${RunningX64}
 		SetOutPath "$INSTDIR\bin\64bit"
-		CreateShortCut "$SMPROGRAMS\OBS Studio\OBS Studio (64bit).lnk" "$INSTDIR\bin\64bit\dacast-obs64.exe"
+		CreateShortCut "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (64bit).lnk" "$INSTDIR\bin\64bit\dacast-obs64.exe"
 	${endif}
 
 	SetOutPath "$INSTDIR\bin\32bit"
@@ -387,11 +387,11 @@ Section "un.dacast-obs-studio Program Files" UninstallSection1
 	Delete "$INSTDIR\uninstall.exe"
 
 	; Delete Shortcuts
-	Delete "$DESKTOP\OBS Studio.lnk"
-	Delete "$SMPROGRAMS\OBS Studio\OBS Studio (32bit).lnk"
+	Delete "$DESKTOP\DACAST-OBS Studio.lnk"
+	Delete "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (32bit).lnk"
 	Delete "$SMPROGRAMS\OBS Studio\Uninstall.lnk"
 	${if} ${RunningX64}
-		Delete "$SMPROGRAMS\OBS Studio\OBS Studio (64bit).lnk"
+		Delete "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (64bit).lnk"
 	${endif}
 
 	IfFileExists "$INSTDIR\data\obs-plugins\win-ivcam\seg_service.exe" UnregisterSegService SkipUnreg

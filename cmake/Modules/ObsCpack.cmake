@@ -32,8 +32,8 @@ MESSAGE(STATUS "OBS_VERSION: ${OBS_VERSION}")
 
 if(INSTALLER_RUN)
 	set(CPACK_PACKAGE_EXECUTABLES
-		"dacast-obs32" "Dacast OBS Studio (32bit)"
-		"dacast-obs64" "Dacast OBS Studio (64bit)")
+		"dacast-obs32" "DACAST OBS Studio (32bit)"
+		"dacast-obs64" "DACAST OBS Studio (64bit)")
 	set(CPACK_CREATE_DESKTOP_LINKS
 		"dacast-obs32"
 		"dacast-obs64")
