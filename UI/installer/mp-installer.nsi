@@ -3,7 +3,7 @@
 Unicode true
 
 ; Define your application name
-!define APPNAME "Dacast Obs"
+!define APPNAME "DACAST-OBS"
 
 !ifndef APPVERSION
 !define APPVERSION "21.1.2"
