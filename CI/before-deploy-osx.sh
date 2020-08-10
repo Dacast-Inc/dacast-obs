@@ -64,4 +64,4 @@ plutil -insert SUFeedURL -string https://obsproject.com/osx_update/stable/update
 plutil -insert SUPublicDSAKeyFile -string OBSPublicDSAKey.pem ./$appName/Contents/Info.plist
 
 hr "Generate dmg"
-dmgbuild -s ../CI/install/osx/settings.json "OBS" obs.dmg
+dmgbuild -s ../CI/install/osx/settings.json "DACAST-OBS" dacast-obs.dmg

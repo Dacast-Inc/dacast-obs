@@ -11,7 +11,7 @@ add_subdirectory(obs-frontend-api)
 
 # ----------------------------------------------------------------------------
 
-project(obs)
+project(dacast-obs)
 
 set(DISABLE_UPDATE_MODULE TRUE CACHE BOOL "Disables building the update module")
 
@@ -259,7 +259,7 @@ if(WIN32)
 
 	set_target_properties(obs
 		PROPERTIES
-			OUTPUT_NAME "obs${_output_suffix}")
+			OUTPUT_NAME "dacast-obs${_output_suffix}")
 endif()
 
 target_link_libraries(obs

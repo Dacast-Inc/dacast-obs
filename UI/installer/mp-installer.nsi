@@ -3,14 +3,14 @@
 Unicode true
 
 ; Define your application name
-!define APPNAME "OBS Studio"
+!define APPNAME "DACAST-OBS"
 
 !ifndef APPVERSION
 !define APPVERSION "21.1.2"
 !define SHORTVERSION "21.1.2"
 !endif
 
-!define APPNAMEANDVERSION "OBS Studio ${SHORTVERSION}"
+!define APPNAMEANDVERSION "DACAST OBS Studio ${SHORTVERSION}"
 ; !define FULL
 !define REALSENSE_PLUGIN
 
@@ -20,12 +20,12 @@ Unicode true
 
 ; Main Install settings
 Name "${APPNAMEANDVERSION}"
-InstallDir "$PROGRAMFILES32\obs-studio"
+InstallDir "$PROGRAMFILES32\Dacast-Obs"
 InstallDirRegKey HKLM "Software\${APPNAME}" ""
 !ifdef FULL
-OutFile "OBS-Studio-${SHORTVERSION}-Full-Installer.exe"
+OutFile "DACAST-OBS-${SHORTVERSION}-Full-Installer.exe"
 !else
-OutFile "OBS-Studio-${SHORTVERSION}-Small-Installer.exe"
+OutFile "DACAST-OBS-${SHORTVERSION}-Small-Installer.exe"
 !endif
 
 ; Use compression
@@ -42,13 +42,13 @@ RequestExecutionLevel admin
 
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN
-!define MUI_FINISHPAGE_RUN_TEXT "Launch OBS Studio ${SHORTVERSION}"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch DACAST OBS Studio ${SHORTVERSION}"
 !define MUI_FINISHPAGE_RUN_FUNCTION "LaunchOBS"
 
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE PreReqCheck
 
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\data\obs-studio\license\gplv2.txt"
+!insertmacro MUI_PAGE_LICENSE "E:\Company\MMT\OBS-DACAST-INC\dacast-obs\build\rundir\Debug\data\obs-studio\license\gplv2.txt"
 !insertmacro MUI_PAGE_DIRECTORY
 !ifdef FULL
 	!insertmacro MUI_PAGE_COMPONENTS
@@ -187,14 +187,14 @@ Function PreReqCheck
 
 	; Check previous instance
 
-	OBSInstallerUtils::IsProcessRunning "obs32.exe"
+	OBSInstallerUtils::IsProcessRunning "dacast-obs32.exe"
 	IntCmp $R0 1 0 notRunning1
 		MessageBox MB_OK|MB_ICONEXCLAMATION "${APPNAME} is already running. Please close it first before installing a new version." /SD IDOK
 		Quit
 	notRunning1:
 
 	${if} ${RunningX64}
-		OBSInstallerUtils::IsProcessRunning "obs64.exe"
+		OBSInstallerUtils::IsProcessRunning "dacast-obs64.exe"
 		IntCmp $R0 1 0 notRunning2
 			MessageBox MB_OK|MB_ICONEXCLAMATION "${APPNAME} is already running. Please close it first before installing a new version." /SD IDOK
 			Quit
@@ -205,26 +205,26 @@ Function PreReqCheck
 	OBSInstallerUtils::AddInUseFileCheck "$INSTDIR\data\obs-plugins\win-capture\graphics-hook64.dll"
 	OBSInstallerUtils::GetAppNameForInUseFiles
 	StrCmp $R0 "" gameCaptureNotRunning
-		MessageBox MB_OK|MB_ICONEXCLAMATION "Game Capture is still in use by the following applications:$\r$\n$\r$\n$R0$\r$\nPlease close these applications before installing a new version of OBS." /SD IDOK
+		MessageBox MB_OK|MB_ICONEXCLAMATION "Game Capture is still in use by the following applications:$\r$\n$\r$\n$R0$\r$\nPlease close these applications before installing a new version of dacast-obs." /SD IDOK
 		Quit
 	gameCaptureNotRunning:
 FunctionEnd
 
 Function filesInUse
-	MessageBox MB_OK|MB_ICONEXCLAMATION "Some files were not able to be installed. If this is the first time you are installing OBS, please disable any anti-virus or other security software and try again. If you are re-installing or updating OBS, close any applications that may be have been hooked, or reboot and try again."  /SD IDOK
+	MessageBox MB_OK|MB_ICONEXCLAMATION "Some files were not able to be installed. If this is the first time you are installing Dacast obs, please disable any anti-virus or other security software and try again. If you are re-installing or updating Dacast Obs, close any applications that may be have been hooked, or reboot and try again."  /SD IDOK
 FunctionEnd
 
 Function LaunchOBS
 	${if} ${RunningX64}
-		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\OBS Studio (64bit).lnk"'
+		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (64bit).lnk"'
 	${else}
-		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\OBS Studio (32bit).lnk"'
+		Exec '"$WINDIR\explorer.exe" "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (32bit).lnk"'
 	${endif}
 FunctionEnd
 
 Var outputErrors
 
-Section "OBS Studio" SecCore
+Section "DACAST OBS Studio" SecCore
 
 	System::Call 'shell32::SHGetSpecialFolderPath(i $HWNDPARENT, t .r1, i ${CSIDL_COMMONAPPDATA}, i0)i.r0'
 	CreateDirectory $1\obs-studio
@@ -240,7 +240,7 @@ Section "OBS Studio" SecCore
 	SetOutPath "$INSTDIR"
 	OBSInstallerUtils::KillProcess "obs-plugins\32bit\cef-bootstrap.exe"
 	OBSInstallerUtils::KillProcess "obs-plugins\64bit\cef-bootstrap.exe"
-	File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\data"
+	File /r "E:\Company\MMT\OBS-DACAST\29July2020-Dacast\Sagar_Sir\dacast-obs\build\rundir\Debug\data"
 	; SetOutPath "$INSTDIR\bin"
 	; File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\bin\32bit"
 	; SetOutPath "$INSTDIR\obs-plugins"
@@ -248,9 +248,9 @@ Section "OBS Studio" SecCore
 
 	${if} ${RunningX64}
 		SetOutPath "$INSTDIR\bin"
-		File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\bin\64bit"
+		File /r "E:\Company\MMT\OBS-DACAST-INC\dacast-obs\build\rundir\Debug\bin\64bit"
 		SetOutPath "$INSTDIR\obs-plugins"
-		File /r "C:\Users\Lina\installs_coding\obs-studio\release\rundir\Release\obs-plugins\64bit"
+		File /r "E:\Company\MMT\OBS-DACAST-INC\dacast-obs\build\rundir\Debug\obs-plugins\64bit"
 	${endif}
 
 	ClearErrors
@@ -261,28 +261,28 @@ Section "OBS Studio" SecCore
 	WriteUninstaller "$INSTDIR\uninstall.exe"
 
 	; Delete Old "Multiplatform" Shortcuts
-	Delete "$DESKTOP\OBS Multiplatform.lnk"
-	Delete "$SMPROGRAMS\OBS Multiplatform\OBS Multiplatform (32bit).lnk"
-	Delete "$SMPROGRAMS\OBS Multiplatform\Uninstall.lnk"
+	Delete "$DESKTOP\DACAST-OBS Multiplatform.lnk"
+	Delete "$SMPROGRAMS\DACAST-OBS Multiplatform\OBS Multiplatform (32bit).lnk"
+	Delete "$SMPROGRAMS\DACAST-OBS Multiplatform\Uninstall.lnk"
 	${if} ${RunningX64}
-		Delete "$SMPROGRAMS\OBS Multiplatform\OBS Multiplatform (64bit).lnk"
+		Delete "$SMPROGRAMS\DACAST-OBS Multiplatform\OBS Multiplatform (64bit).lnk"
 	${endif}
 
 	${if} ${RunningX64}
 		SetOutPath "$INSTDIR\bin\64bit"
-		CreateShortCut "$DESKTOP\OBS Studio.lnk" "$INSTDIR\bin\64bit\obs64.exe"
+		CreateShortCut "$DESKTOP\DACAST-OBS Studio.lnk" "$INSTDIR\bin\64bit\dacast-obs64.exe"
 	${else}
 		SetOutPath "$INSTDIR\bin\32bit"
-		CreateShortCut "$DESKTOP\OBS Studio.lnk" "$INSTDIR\bin\32bit\obs32.exe"
+		CreateShortCut "$DESKTOP\DACAST-OBS Studio.lnk" "$INSTDIR\bin\32bit\dacast-obs32.exe"
 	${endif}
 	SetOutPath "$INSTDIR\bin\32bit"
 	CreateDirectory "$SMPROGRAMS\OBS Studio"
-	CreateShortCut "$SMPROGRAMS\OBS Studio\OBS Studio (32bit).lnk" "$INSTDIR\bin\32bit\obs32.exe"
+	CreateShortCut "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (32bit).lnk" "$INSTDIR\bin\32bit\dacast-obs32.exe"
 	CreateShortCut "$SMPROGRAMS\OBS Studio\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
 	${if} ${RunningX64}
 		SetOutPath "$INSTDIR\bin\64bit"
-		CreateShortCut "$SMPROGRAMS\OBS Studio\OBS Studio (64bit).lnk" "$INSTDIR\bin\64bit\obs64.exe"
+		CreateShortCut "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (64bit).lnk" "$INSTDIR\bin\64bit\dacast-obs64.exe"
 	${endif}
 
 	SetOutPath "$INSTDIR\bin\32bit"
@@ -356,7 +356,7 @@ Section -FinishSection
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" "$INSTDIR\uninstall.exe"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "ProductID" "d16d2409-3151-4331-a9b1-dfd8cf3f0d9c"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\bin\32bit\obs32.exe"
-	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "OBS Project"
+	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "DACAST-OBS Project"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "HelpLink" "https://obsproject.com"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${APPVERSION}"
 
@@ -364,7 +364,7 @@ SectionEnd
 
 ; Modern install component descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-	!insertmacro MUI_DESCRIPTION_TEXT ${SecCore} "Core OBS Studio files"
+	!insertmacro MUI_DESCRIPTION_TEXT ${SecCore} "Core DACAST OBS Studio files"
 	!ifdef FULL
 		!insertmacro MUI_DESCRIPTION_TEXT ${SecPlugins} "Optional Plugins"
 		!insertmacro MUI_DESCRIPTION_TEXT ${SecPlugins_Browser} "Browser plugin (a source you can add to your scenes that displays web pages)"
@@ -375,7 +375,7 @@ SectionEnd
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;Uninstall section
-Section "un.obs-studio Program Files" UninstallSection1
+Section "un.dacast-obs-studio Program Files" UninstallSection1
 
 	SectionIn RO
 
@@ -387,11 +387,11 @@ Section "un.obs-studio Program Files" UninstallSection1
 	Delete "$INSTDIR\uninstall.exe"
 
 	; Delete Shortcuts
-	Delete "$DESKTOP\OBS Studio.lnk"
-	Delete "$SMPROGRAMS\OBS Studio\OBS Studio (32bit).lnk"
+	Delete "$DESKTOP\DACAST-OBS Studio.lnk"
+	Delete "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (32bit).lnk"
 	Delete "$SMPROGRAMS\OBS Studio\Uninstall.lnk"
 	${if} ${RunningX64}
-		Delete "$SMPROGRAMS\OBS Studio\OBS Studio (64bit).lnk"
+		Delete "$SMPROGRAMS\OBS Studio\DACAST-OBS Studio (64bit).lnk"
 	${endif}
 
 	IfFileExists "$INSTDIR\data\obs-plugins\win-ivcam\seg_service.exe" UnregisterSegService SkipUnreg
@@ -415,17 +415,17 @@ Section /o "un.User Settings" UninstallSection2
 SectionEnd
 
 !insertmacro MUI_UNFUNCTION_DESCRIPTION_BEGIN
-	!insertmacro MUI_DESCRIPTION_TEXT ${UninstallSection1} "Remove the OBS program files."
+	!insertmacro MUI_DESCRIPTION_TEXT ${UninstallSection1} "Remove the DACAST OBS program files."
 	!insertmacro MUI_DESCRIPTION_TEXT ${UninstallSection2} "Removes all settings, plugins, scenes and sources, profiles, log files and other application data."
 !insertmacro MUI_UNFUNCTION_DESCRIPTION_END
 
 ; Version information
 VIProductVersion "${APPVERSION}.0"
-VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "OBS Studio"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "DACAST OBS Studio"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" "obsproject.com"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "(c) 2012-2016"
 ; FileDescription is what shows in the UAC elevation prompt when signed
-VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "OBS Studio"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "DACAST OBS Studio"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "1.0"
 
 ; eof

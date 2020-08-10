@@ -26,7 +26,7 @@ from os import makedirs, rename, walk, path as ospath
 import plistlib
 
 import argparse
-parser = argparse.ArgumentParser(description='obs-studio package util')
+parser = argparse.ArgumentParser(description='dacast-obs-studio package util')
 parser.add_argument('-d', '--base-dir', dest='dir', default='rundir/RelWithDebInfo')
 parser.add_argument('-n', '--build-number', dest='build_number', default='0')
 parser.add_argument('-k', '--public-key', dest='public_key', default='OBSPublicDSAKey.pem')

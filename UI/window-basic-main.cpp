@@ -191,7 +191,7 @@ OBSBasic::OBSBasic(QWidget *parent)
 	installEventFilter(CreateShortcutFilter());
 
 	stringstream name;
-	name << "OBS " << App()->GetVersionString();
+	name << "DACAST-OBS " << App()->GetVersionString();
 	blog(LOG_INFO, "%s", name.str().c_str());
 	blog(LOG_INFO, "---------------------------------");
 
@@ -4267,7 +4267,7 @@ void OBSBasic::UploadLog(const char *subdir, const char *file)
 	ui->menuLogFiles->setEnabled(false);
 
 	stringstream ss;
-	ss << "OBS " << App()->GetVersionString()
+	ss << "DACAST-OBS " << App()->GetVersionString()
 	   << " log file uploaded at " << CurrentDateTimeString()
 	   << "\n\n" << fileString;
 
@@ -5786,7 +5786,7 @@ void OBSBasic::UpdateTitleBar()
 	const char *sceneCollection = config_get_string(App()->GlobalConfig(),
 			"Basic", "SceneCollection");
 
-	name << "OBS ";
+	name << "DACAST-OBS ";
 	if (previewProgramMode)
 		name << "Studio ";
 
@@ -6024,7 +6024,7 @@ void OBSBasic::SystemTrayInit()
 {
 	trayIcon = new QSystemTrayIcon(QIcon(":/res/images/obs.png"),
 			this);
-	trayIcon->setToolTip("OBS Studio");
+	trayIcon->setToolTip("DACAST-OBS Studio");
 
 	showHide = new QAction(QTStr("Basic.SystemTray.Show"),
 			trayIcon);
@@ -6088,7 +6088,7 @@ void OBSBasic::SysTrayNotify(const QString &text,
 	if (QSystemTrayIcon::supportsMessages()) {
 		QSystemTrayIcon::MessageIcon icon =
 				QSystemTrayIcon::MessageIcon(n);
-		trayIcon->showMessage("OBS Studio", text, icon, 10000);
+		trayIcon->showMessage("DACAST-OBS Studio", text, icon, 10000);
 	}
 }
 

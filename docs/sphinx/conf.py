@@ -48,7 +48,7 @@ primary_domain = 'c'
 master_doc = 'index'
 
 # General information about the project.
-project = 'OBS Studio'
+project = 'DACAST OBS Studio'
 copyright = '2017, Hugh Bailey'
 author = 'Hugh Bailey'
 
@@ -141,7 +141,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'OBSStudio.tex', 'OBS Studio Documentation',
+    (master_doc, 'OBSStudio.tex', 'DACAST OBS Studio Documentation',
      'Hugh Bailey', 'manual'),
 ]
 
@@ -151,7 +151,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'obsstudio', 'OBS Studio Documentation',
+    (master_doc, 'obsstudio', 'DACAST OBS Studio Documentation',
      [author], 1)
 ]
 
@@ -162,7 +162,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'OBSStudio', 'OBS Studio Documentation',
+    (master_doc, 'OBSStudio', 'DACAST OBS Studio Documentation',
      author, 'OBSStudio', 'One line description of project.',
      'Miscellaneous'),
 ]
